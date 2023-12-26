@@ -41,10 +41,14 @@ SCORE_LIMIT = 100 #the maximum score of the game before we break the loop
 
 # Game settings
 NUM_FOOD = 100
-ROUND_TIME = 30
+ROUND_TIME = 15
 
 # NEAT settings
 GENERATION = 0 
+FOOD_DETECTION = 3
+PLAYER_DETECTION = 3
+# Can only eat other players if this player is at least this much bigger
+EAT_PLAYER_THRESHOLD = 0.1
 
 # Global settings
 THRESHOLD_INACTIVITY = 3
@@ -52,7 +56,7 @@ PUNISHMENT_EATEN = 2
 PUNISHMENT_INACTIVITY = 5
 
 # Checks if user wants to exit / play manually
-def check_for_game_events():
+def check_for_game_events(players):
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -62,6 +66,17 @@ def check_for_game_events():
             if event.key == pygame.K_ESCAPE:
                 pygame.quit()
                 quit()
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left mouse button clicked
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            # Check if the mouse click is within the bounding box of any player
+            for player in players:
+                if (player.x - player.radius <= mouse_x <= player.x + player.radius and
+                        player.y - player.radius <= mouse_y <= player.y + player.radius):
+                    # Invert the selected boolean
+                    player.selected = not player.selected
+                else:
+                    player.selected = False
+    return players
 
 # An AI has played well enough to win
 def goal_reached(players_list):
@@ -69,31 +84,56 @@ def goal_reached(players_list):
     max_score = max(player.score for player in players_list)
     return max_score >= SCORE_LIMIT
 
+def get_fitness_components(player):
+    weights = {
+                'peak_score': 1,
+                'score': 1, 
+                'players_eaten': 1,
+                'food_consumed': 1, 
+                'distance_travelled': 1}
+    
+    return {
+        'peak_score': player.peak_score * weights['peak_score'],
+        'score': player.score * weights['score'],
+        'players_eaten': player.players_eaten * weights['players_eaten'],
+        'food_consumed': player.food_consumed * weights['food_consumed'],
+        'distance_travelled': int(player.distance_travelled * weights['distance_travelled'])
+    }
+
 def calculate_fitness(player):
     # Weights for each component
-    weights = {'score': 1.2, 'players_eaten': 1, 'food_consumed': 0.5, 
-                'position': 0.1, 'speed': 0.1, 'agility': 0.1, 'strategy': 0.1, 
-                'players_consumed': 0.2, 'distance_travelled': 0.2}
-
+    weights = {
+                'peak_score': 0.5,
+                'score': 1, 
+                'players_eaten': 1,
+                'food_consumed': 1, 
+                'distance_travelled': 0.3}
+    
+    # peak_score_component = player.peak_score * weights['peak_score']
     # Calculate the score for each component
     score_component = player.score * weights['score']
     # print(f"Score component: {score_component}")
-    players_eaten_component = player.players_eaten * weights['players_eaten']
+    # players_eaten_component = player.players_eaten * weights['players_eaten']
     # print(f"Players eaten component: {players_eaten_component}")
-    food_consumed_component = player.food_consumed * weights['food_consumed']
+    # food_consumed_component = player.food_consumed * weights['food_consumed']
     # print(f"Food consumed component: {food_consumed_component}")
-    distance_travelled_component = player.distance_travelled * weights['distance_travelled']
+    # distance_travelled_component = player.distance_travelled * weights['distance_travelled']
     # print(f"Distance travelled component: {distance_travelled_component}")
 
-    fitness_score = score_component \
-    + players_eaten_component \
-    + food_consumed_component \
-    + distance_travelled_component
+    fitness_score = score_component
+    # + peak_score_component \
+    # + players_eaten_component \
+    # + food_consumed_component 
 
+    # Get punishment components
+    # fitness_score -= player.eaten_punishment_counter * PUNISHMENT_EATEN
+    # fitness_score -= player.move_punishment_counter * PUNISHMENT_INACTIVITY
+    # fitness_score -= player.wall_punishment_counter * PUNISHMENT_INACTIVITY
     # print(f"Intermediate fitness score: {fitness_score}")
 
     if player.failed:
         fitness_score /= 2
+        
     fitness_score = int(fitness_score)
 
     # Return the final fitness score
@@ -101,7 +141,8 @@ def calculate_fitness(player):
 
 def evaluate_genomes(genomes, config):
     global SCREEN_WIDTH, SCREEN_HEIGHT, GENERATION, game_time, WIN, manual_control #use the global variable gen and SCREEN
-    print(f"{'Fitness':^10}{'Reason':<50}")
+    print(f"{'Name':^10}{'Fitness':^10}{'Peak':^10}{'score':^10}{'p_eaten':^10}{'f_eaten':^10}{'distance':^10}{'Reason':<20}")
+
     GENERATION += 1 #update the generation
     
     # Calculate game's end time from now
@@ -118,19 +159,19 @@ def evaluate_genomes(genomes, config):
     models_list = neat_components['models']
     food_list = get_food(NUM_FOOD)
 
-
     while True:
         
-        if time.time() >= end_round_time:
+        if time.time() >= end_round_time or len(players_list) < 2:
             for player_index, player in enumerate(players_list):
                 genomes_list[player_index].fitness = calculate_fitness(player)
             print("Round time done")
             for i in reversed(range(3)):
                 print(f"Starting next generation in {i+1}...", end='\r')
+                time.sleep(1)
             break
 
         # Continue the game loop
-        check_for_game_events()
+        players_list = check_for_game_events(players_list)
 
         if len(players_list) == 0:
             run = False
@@ -163,18 +204,20 @@ def evaluate_genomes(genomes, config):
         }
 
         delete_player = False
-        player_text = f"{'Moved':^10}{'Name':^10}"
+        player_text = []
         
         # Update player positions and check for collisions
         for player_index in reversed(range(len(players_list))):
-            
+            # player_text = []
             delete_player = False
             player = players_list[player_index]
-
+            player.score = player.score - (player.score * 0.002) if player.score > 0 else 0
+            
+            # ! inputs
             # Collect neural network input data
-            player_distances = list(get_nearest_players_distances(player, players_list).values())
-            player_sizes = list(get_nearest_players_sizes(player, players_list).values())
-            food_distances = list(get_nearest_players_distances(player, food_list).values())
+            player_distances = list(get_nearest_players_distances(player, players_list).values())[:PLAYER_DETECTION]
+            player_sizes = list(get_nearest_players_sizes(player, players_list).values())[:PLAYER_DETECTION]
+            food_distances = list(get_nearest_players_distances(player, food_list).values())[:FOOD_DETECTION]
             wall_distances = get_distance_to_walls(player)
 
             # Convert the collected data to a format the neural network will recognise
@@ -185,7 +228,7 @@ def evaluate_genomes(genomes, config):
             # ! Player sizes of other players
             # ! Player distances to food
             # ! Player distances to walls
-            inputs = tuple([player.x, player.y, player.score, player.radius] + player_distances + player_sizes + food_distances + wall_distances)
+            inputs = tuple([player.peak_score, player.x, player.y, player.radius] + player_distances + player_sizes + food_distances)
 
             # Get neural network output
             output = models_list[player_index].activate(inputs)
@@ -217,76 +260,113 @@ def evaluate_genomes(genomes, config):
                 new_x, new_y = player.x, player.y
                 # Has player movesf
                 player_moved = current_x != new_x or current_y != new_y
-                # if player_moved:
-                    # player_text += f"{'Yes':^10}{player.name:^10}\n"
-            # else:
-                # player_text += f"{'No':^10}{player.name:^10}\n"
 
-            # reset keys for next player
+            # ! Reset keys for next player
             for key in keys:
                 keys[key] = False
 
-            def calculate_time_diff(current_time, last_time) -> float:
-                return current_time - last_time
+            # def calculate_time_diff(current_time, last_time) -> float:
+            #     return current_time - last_time
 
-            def apply_penalty(player, current_time, last_time, reason) -> list:
-                INACTIVITY_TIME = THRESHOLD_INACTIVITY
-                if reason == "Hasn't eaten anything":
-                    INACTIVITY_TIME = 15
-                delete_player = False
-                inactivity_time = calculate_time_diff(current_time, last_time)
-                if inactivity_time > INACTIVITY_TIME:
-                    if player.score_rock_bottom == True:
-                        delete_player = True
-                        player.fail_reason = reason
-                        return [delete_player, last_time]
-                    player.score = max(0, player.score - THRESHOLD_INACTIVITY)
-                    last_time = current_time
-                    if player.score == 0:
-                        player.score_rock_bottom = True
-                        last_time = current_time
-                return [delete_player, last_time]
+            # current_time = time.time()
+            # # ! Check if player has moved
+            # delete_player = False
+            # player_inactivity_time = calculate_time_diff(current_time, player.last_move_time)
+            # if player_inactivity_time > THRESHOLD_INACTIVITY:
+            #     # ! If player has hit rock bottom, delete them
+            #     if player.score_rock_bottom == True:
+            #         delete_player = True
+            #         player.fail_reason = f"Hasn't moved"
+            #     else:
+            #         player.score = max(0, player.score - PUNISHMENT_INACTIVITY)
+            #         player.last_move_time = time.time()
+            #         player.move_punishment_counter += 1
+            #         if player.score == 0:
+            #             player.score_rock_bottom = True
+            
+            # # ! Check if player is touching the wall
+            # if not delete_player:
+            #     # Is player touching the wall.
+            #     # Check if the player is touching the edge
+            #     if player.x - player.radius <= 0 or player.x + player.radius >= SCREEN_WIDTH or player.y - player.radius <= 0 or player.y + player.radius >= SCREEN_HEIGHT:
+            #         player.edge_touch_counter += 1
+            #     else:
+            #         player.edge_touch_counter = 0
 
-            current_time = time.time()
-            result = apply_penalty(player, current_time, player.last_move_time, "Hasn't moved")
-            delete_player, player.last_move_time = result[0], result[1]
-            if not delete_player:
-                result = apply_penalty(player, current_time, player.player_eaten_time, "Hasn't eaten anything")
-                delete_player, player.player_eaten_time = result[0], result[1]
+            #     # If the player has been touching the edge for more than N seconds, trigger an action
+            #     if player.edge_touch_counter > FPS * THRESHOLD_INACTIVITY:
+            #         # Reset the counter
+            #         player.edge_touch_counter = 0
+            #         if player.score_rock_bottom == True:
+            #             delete_player = True
+            #             player.fail_reason = f"Touching wall"
+            #             # player_text.append(f"{player.name:^10} - {player.fail_reason:>10}")                       
+            #         player.score = max(0, player.score - PUNISHMENT_INACTIVITY)
+            #         player.edge_touch_counter = 0
+            #         player.wall_punishment_counter += 1
+            #         if player.score == 0:
+            #             player.score_rock_bottom = True
+            #     # result = apply_penalty(player, current_time, player.wall_touch_time, "Touching wall")
+            #     # delete_player, player.wall_touch_time = result[0], result[1]
+            
+            # # ! TODO: Check if player has eaten any food
+            # # ! Check if player has eaten another player or food
+            # if not delete_player:
+            #     INACTIVITY_TIME = 5
+            #     # When was the last time the player ate anything
+            #     current_time = time.time()
+                
+            #     inactivity_time = calculate_time_diff(current_time, player.last_eaten_time)
+            #     if inactivity_time > INACTIVITY_TIME:
+            #         if player.score_rock_bottom == True:
+            #             dfelete_player = True
+            #             player.fail_reason = "Hasn't eaten anything"
+                    
+            #         player.score = max(0, player.score - PUNISHMENT_INACTIVITY)
+            #         # Reset this time
+            #         player.last_eaten_time = time.time()
+            #         player.eaten_punishment_counter += 1
+            #         if player.score == 0:
+            #             player.score_rock_bottom = True
 
-            if not delete_player:
-                result = apply_penalty(player, current_time, player.wall_touch_time, "Touching wall")
-                delete_player, player.wall_touch_time = result[0], result[1]
-
-
+            
             if not delete_player:
                 # Store players colliding with this player
                 colliding_players = [other_player for other_player in players_list if player != other_player and check_collision(player, other_player)]
                 for colliding_player in colliding_players:
-                    if handle_collision(player, colliding_player):
+                    if player_is_eaten(player, colliding_player):
                         delete_player = True
-                        player.fail_reason = f"{player.name} eaten by {colliding_player.name}"
+                        player.fail_reason = f"Eaten by {colliding_player.name}"
                         break
                 
             if delete_player:
                 # Set the fitness score
                 genomes_list[player_index].fitness = calculate_fitness(player)
-                print(f"{genomes_list[player_index].fitness:^10}{player.fail_reason:<50}")
+                fitness_components = get_fitness_components(player)
+                # ! PRINT STATS
+                
+                print(f"{player.name:^10}{genomes_list[player_index].fitness:^10}", end="")
+                for key, value in fitness_components.items():
+                    print(f"{value:^10}", end="")
+                print(f"{player.fail_reason:<20}")
+                # Set the player as failed
+                players_list[player_index].failed = True
                 # Remove them from the lists as we've modified the genome by reference (fucking hope I have)
                 players_list.pop(player_index)
                 models_list.pop(player_index)
                 genomes_list.pop(player_index)
 
-        # if player_text != "":
-        #     sys.stdout.write(player_text + '\r')
-        #     sys.stdout.flush()
-        # Update food positions and check for collisions
+        if player_text != []:
+            print(*player_text, sep="\n")
+
+        # ! Update food positions and check for collisions
         for food_item in food_list[:]: # Use a copy of the list to avoid issues with removing items during iteration
             for player in players_list:
                 if check_collision(food_item, player):
                     player.score += 1
+                    player.peak_score = max(player.score, player.peak_score)
                     player.food_consumed += 1
-                    player.player_eaten_time = time.time()
+                    player.last_eaten_time = time.time()
                     food_list.remove(food_item)
                     break
 
@@ -295,24 +375,37 @@ def evaluate_genomes(genomes, config):
             food_needed = NUM_FOOD - len(food_list)
             food_list.extend(get_food(food_needed))
 
+        
         draw_game(players_list, food_list, game_time)
 
 # ! DRAW
-def draw_game(players, food, game_time):
+def draw_game(players, food_list, game_time):
     # Background
     WIN.fill((0, 0, 0))
 
-    game_objects = players + food
+    # Get highest score
+    global max_score
+    max_score = max(player.score for player in players)
+    
+    for player in players:
+        # Set colour between red and green based on score (0, max_score)
+        # 0 = red, max_score = green
+        # 0 = 255, max_score = 0
+        color = (255, 255, 255)
+        if max_score > 0:
+            color = (255 - int(player.score / max_score * 255), int(player.score / max_score * 255), 0)
+        player.color = color
+        player.draw(WIN)
 
-    for obj in game_objects:
-        obj.draw(WIN)
+    for food in food_list:
+        food.draw(WIN)
 
     # Initialize the font module
     pygame.font.init()
 
     # Render the scores as text
     font = pygame.font.SysFont(None, 30) # Adjust the size as needed
-    score_text = font.render(f"Highest Score: {max_score}", True, (255, 255, 255)) # White text
+    score_text = font.render(f"Highest Score: {max_score:.0f}", True, (255, 255, 255)) # White text
     num_players_text = font.render(f"Players Remaining: {len(players)}", True, (255, 255, 255)) # White text
     generation_text = font.render(f"Generation: {GENERATION}", True, (255, 255, 255))
     minutes, seconds = divmod(game_time, 60)
@@ -322,6 +415,28 @@ def draw_game(players, food, game_time):
     WIN.blit(score_text, (10, 10)) # Position as needed
     WIN.blit(num_players_text, (10, 40)) # Position as needed
     WIN.blit(generation_text, (10, 70))
+
+    # Find the selected player
+    selected_player = next((player for player in players if player.selected), None)
+
+    if selected_player:
+        # Draw lines to the 10 nearest foods to the selected player
+        player_x = selected_player.x
+        player_y = selected_player.y
+        food_distances = get_nearest_players_distances(selected_player, food_list)
+        nearest_food = list(food_distances.items())[:FOOD_DETECTION]
+        for food_name, _ in nearest_food:
+            food_obj = next((obj for obj in food_list if obj.name == food_name), None)
+            if food_obj:
+                pygame.draw.aaline(WIN, (0, 255, 0, 100), (player_x, player_y), (food_obj.x, food_obj.y), 2)
+
+        # Draw lines to the 10 nearest players to the selected player
+        player_distances = get_nearest_players_distances(selected_player, players)
+        nearest_players = list(player_distances.items())[:PLAYER_DETECTION]
+        for player_name, _ in nearest_players:
+            other_player = next((obj for obj in players if obj.name == player_name), None)
+            if other_player:
+                pygame.draw.aaline(WIN, (255, 0, 0, 100), (player_x, player_y), (other_player.x, other_player.y), 2)
 
     pygame.display.flip()
 
@@ -336,22 +451,24 @@ def check_collision(obj1, obj2) -> bool:
     dx = obj1.x - obj2.x
     dy = obj1.y - obj2.y
     distance = math.sqrt(dx*dx + dy*dy)
-    return distance <= (obj1.radius + obj2.radius)
+    threshold = obj1.radius + (obj1.radius * 0.1) + obj2.radius
+    return distance <= threshold
 
-def handle_collision(player, colliding_player):
-    if player.score > colliding_player.score:
-        player.score += colliding_player.score // 2
+def player_is_eaten(player, colliding_player):
+    # ! this player ate other player
+    if player.fail_reason == "" and player.score > colliding_player.score:
+        player.score += 5 + colliding_player.score
+        player.peak_score = max(player.score, player.peak_score)
         player.players_eaten += 1
-        player.player_eaten_time = time.time()
+        player.last_eaten_time = time.time()
         colliding_player.failed = True
-        colliding_player.fail_reason += f"{player.name} has eaten {colliding_player.name}"
+        colliding_player.fail_reason += f"eaten by {player.name}"
         return False
-    colliding_player.score += player.score // 2
-    colliding_player.players_eaten += 1
-    colliding_player.player_eaten_time = time.time()
-    player.failed = True
-
+    elif player.score == colliding_player.score:
+        return False
+    # ! This player has been eaten
     return True
+
 
 def handle_wall_collision(player):
     if collide_with_wall(player):
@@ -463,7 +580,7 @@ def get_neat_components(genomes, config) -> dict:
         # Create a neural network for each genome
         model = neat.nn.FeedForwardNetwork.create(genome, config)  # Set up the neural network for each genome using the configuration we set
         models_list.append(model)  # Append the neural network in the list
-    
+
     # Return a dictionary of lists
     return {
         'players': players_list,

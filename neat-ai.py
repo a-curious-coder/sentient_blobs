@@ -1,7 +1,7 @@
 import neat
 from main import evaluate_genomes as main
 
-max_gen = 3 #The maximum number of generation to run
+max_gen = 50 #The maximum number of generation to run
 
 
 # Define a function to run NEAT algorithm to play flappy bird
@@ -50,6 +50,8 @@ config_file = 'config-feedforward.txt'
 
 if __name__ == '__main__':
     try:
+        # Clear console
+        print('\033c')
         run_NEAT(config_file)
     except KeyboardInterrupt:
         print('\nUser quit the game!')
