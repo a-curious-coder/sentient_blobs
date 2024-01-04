@@ -1,10 +1,10 @@
-import pygame
 import random
 import time
 
+import pygame
+
 
 class Player:
-
     def __init__(self, x, y, name, colour=(255, 255, 255)):
         self.x = x
         self.y = y
@@ -55,8 +55,8 @@ class Player:
 
     @property
     def score(self):
-        return self._score
-    
+        return round(self._score)
+
     @score.setter
     def score(self, value):
         if value < 0:
