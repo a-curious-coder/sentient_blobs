@@ -3,7 +3,7 @@ import math
 import random
 import sys
 import time
-from math import sqrt
+from math import floor, sqrt
 
 import neat
 import numpy as np
@@ -32,8 +32,11 @@ logger.addHandler(ch)
 
 pygame.init()
 
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 800
+infoObject = pygame.display.Info()
+w = infoObject.current_w
+h = infoObject.current_h
+SCREEN_WIDTH = w // 2
+SCREEN_HEIGHT = h // 2
 GAME_BORDER = 50
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
@@ -143,8 +146,18 @@ def calculate_fitness(player):
     # Return the final fitness score
     return fitness_score
 
+
 def reduce_player_score(player):
-    return player.score - (player.score * 0.002) if score > 0 else 0
+    return player.score - (player.score * 0.002) if player.score > 1 else 0
+
+
+def reduce_player_base_radius(player):
+    return (
+        player.base_radius - (player.base_radius * 0.001)
+        if player.base_radius > 1
+        else 1
+    )
+
 
 def evaluate_genomes(genomes, config):
     """Evaluate the fitness of each genome in the genomes list
@@ -224,71 +237,77 @@ def evaluate_genomes(genomes, config):
             # player_text = []
             player = players_list[player_index]
             delete_player = True if player.failed else False
-            player.score = reduce_player_score(player)
+            if not delete_player:
+                # ! Player punishments
+                if player.score != 0:
+                    player.score = reduce_player_score(player)
+                else:
+                    player.base_radius = reduce_player_base_radius(player)
+                    if player.base_radius == 1:
+                        player.failed = True
+                        player.fail_reason += "player didn't eat enough food"
+                # ! inputs
+                # Collect neural network input data
+                player_distances = list(
+                    get_nearest_players_distances(player, players_list).values()
+                )[:PLAYER_DETECTION]
+                player_sizes = list(
+                    get_nearest_players_sizes(player, players_list).values()
+                )[:PLAYER_DETECTION]
+                food_distances = list(
+                    get_nearest_players_distances(player, food_list).values()
+                )[:FOOD_DETECTION]
+                wall_distances = get_distance_to_walls(player)
 
-
-            # ! inputs
-            # Collect neural network input data
-            player_distances = list(
-                get_nearest_players_distances(player, players_list).values()
-            )[:PLAYER_DETECTION]
-            player_sizes = list(
-                get_nearest_players_sizes(player, players_list).values()
-            )[:PLAYER_DETECTION]
-            food_distances = list(
-                get_nearest_players_distances(player, food_list).values()
-            )[:FOOD_DETECTION]
-            wall_distances = get_distance_to_walls(player)
-
-            # Convert the collected data to a format the neural network will recognise
-            # ! Player location
-            # ! Player score
-            # ! Player radius
-            # ! Player distances to other players
-            # ! Player sizes of other players
-            # ! Player distances to food
-            inputs = tuple(
-                [player.score, player.x, player.y, player.radius]
-                + player_distances
-                + player_sizes
-                + food_distances
-            )
-
-            # Get neural network output
-            output = models_list[player_index].activate(inputs)
-
-            # Convert the output to probabilities of which choice it's making
-            probabilities = np.exp(output) / np.sum(np.exp(output))
-
-            # Choose the action with the highest probability
-            # NOTE: A single action could select multiple moves as some values represent pairs of simultaneous moves
-            # action = np.argmax(probabilities)
-            max_probability = np.max(probabilities)
-            max_indices = np.where(probabilities == max_probability)[0]
-            actions = max_indices.tolist()
-            ai_chosen_moves = []
-            for action in actions:
-                # Map the action to corresponding key press(es)
-                ai_chosen_moves += key_mapping[action]
-
-            # Map the action to key press(es)
-            for key in keys:
-                keys[key] = key in ai_chosen_moves
-
-            if any(keys.values()):
-                # TODO: Better define later
-                conflicting_moves = (keys[pygame.K_LEFT] and keys[pygame.K_RIGHT]) or (
-                    keys[pygame.K_DOWN] and keys[pygame.K_UP]
+                # Convert the collected data to a format the neural network will recognise
+                # ! Player location
+                # ! Player score
+                # ! Player radius
+                # ! Player distances to other players
+                # ! Player sizes of other players
+                # ! Player distances to food
+                inputs = tuple(
+                    [player.score, player.x, player.y, player.radius]
+                    + player_distances
+                    + player_sizes
+                    + food_distances
                 )
 
-            if not conflicting_moves:
-                player.last_move_time = time.time()
-                # Move player
-                player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
+                # Get neural network output
+                output = models_list[player_index].activate(inputs)
 
-            # ! Reset keys for next player
-            for key in keys:
-                keys[key] = False
+                # Convert the output to probabilities of which choice it's making
+                probabilities = np.exp(output) / np.sum(np.exp(output))
+
+                # Choose the action with the highest probability
+                # NOTE: A single action could select multiple moves as some values represent pairs of simultaneous moves
+                # action = np.argmax(probabilities)
+                max_probability = np.max(probabilities)
+                max_indices = np.where(probabilities == max_probability)[0]
+                actions = max_indices.tolist()
+                ai_chosen_moves = []
+                for action in actions:
+                    # Map the action to corresponding key press(es)
+                    ai_chosen_moves += key_mapping[action]
+
+                # Map the action to key press(es)
+                for key in keys:
+                    keys[key] = key in ai_chosen_moves
+
+                if any(keys.values()):
+                    # TODO: Better define later
+                    conflicting_moves = (
+                        keys[pygame.K_LEFT] and keys[pygame.K_RIGHT]
+                    ) or (keys[pygame.K_DOWN] and keys[pygame.K_UP])
+
+                if not conflicting_moves:
+                    player.last_move_time = time.time()
+                    # Move player
+                    player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
+
+                # ! Reset keys for next player
+                for key in keys:
+                    keys[key] = False
 
             if not delete_player:
                 # Store players colliding with this player
@@ -329,7 +348,7 @@ def evaluate_genomes(genomes, config):
         ]:  # Use a copy of the list to avoid issues with removing items during iteration
             for player in players_list:
                 if check_collision(food_item, player):
-                    player.score += 1
+                    player = increment_score(player)
                     player.peak_score = max(player.score, player.peak_score)
                     player.food_consumed += 1
                     player.last_eaten_time = time.time()
@@ -340,6 +359,14 @@ def evaluate_genomes(genomes, config):
         ensure_food(food_list)
 
         draw_game(players_list, food_list)
+
+
+def increment_score(player):
+    if player.score != 0:
+        player.score += 1
+    else:
+        player.base_radius += 1
+    return player
 
 
 def ensure_food(food_list):
@@ -364,7 +391,7 @@ def draw_game(players, food_list):
         # Set colour between red and green based on score (0, max_score)
         # 0 = red, max_score = green
         # 0 = 255, max_score = 0
-        color = (255, 255, 255)
+        color = (255, 0, 0)
         if MAX_SCORE > 0:
             color = (
                 255 - int(player.score / MAX_SCORE * 255),
@@ -434,6 +461,27 @@ def draw_game(players, food_list):
                     (other_player.x, other_player.y),
                     2,
                 )
+        # Draw stats for the selected player
+        font = pygame.font.SysFont(None, 30)  # Adjust the size as needed
+        score_text = font.render(
+            f"Score: {selected_player.score:.0f}", True, (255, 255, 255)
+        )  # White text
+        num_players_text = font.render(
+            f"Players Eaten: {selected_player.players_eaten}", True, (255, 255, 255)
+        )
+        num_food_text = font.render(
+            f"Food Consumed: {selected_player.food_consumed}", True, (255, 255, 255)
+        )
+        location_text = font.render(
+            f"Location: ({selected_player.x:.0f}, {selected_player.y:.0f})",
+            True,
+            (255, 255, 255),
+        )
+
+        WIN.blit(score_text, (SCREEN_WIDTH - 200, 10))  # Position as needed
+        WIN.blit(num_players_text, (SCREEN_WIDTH - 200, 40))  # Position as needed
+        WIN.blit(num_food_text, (SCREEN_WIDTH - 200, 70))  # Position as needed
+        WIN.blit(location_text, (SCREEN_WIDTH - 200, 100))  # Position as needed
 
     pygame.display.flip()
 
@@ -455,8 +503,14 @@ def check_collision(obj1, obj2) -> bool:
 
 def player_eaten_player(player, colliding_player):
     # ! this player ate other player
-    if player.radius > colliding_player.radius * 1.1:
-        player.score += colliding_player.score
+    if floor(player.radius) > floor(colliding_player.radius * 1.1):
+        if player.score != 0:
+            player.score += colliding_player.radius
+        else:
+            player.base_radius += colliding_player.base_radius
+            if player.base_radius > 10:
+                player.score = player.base_radius - 10
+                player.base_radius = 10
         player.peak_score = max(player.score, player.peak_score)
         player.players_eaten += 1
         player.last_eaten_time = time.time()

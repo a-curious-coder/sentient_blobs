@@ -8,7 +8,7 @@ class Player:
     def __init__(self, x, y, name, colour=(255, 255, 255)):
         self.x = x
         self.y = y
-        self.base_radius = 5
+        self.base_radius = 10
         self.radius = self.base_radius
         self.speed = 3
         self.name = name
