@@ -32,6 +32,8 @@ class Player:
         self.wall_punishment_counter = 0
         # Log highest score
         self.peak_score = 0
+        self.conflicting_moves = False
+        self.in_motion = False
 
     def draw(self, win):
         self.radius = int(self.base_radius + self.score)

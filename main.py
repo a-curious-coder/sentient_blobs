@@ -48,6 +48,7 @@ SCORE_LIMIT = 100  # the maximum score of the game before we break the loop
 MAX_SCORE = 0  # The highest score achieved by a player
 NUM_FOOD = 100
 ROUND_TIME = 15
+ITERATIONS = 1000
 
 # NEAT settings
 GENERATION = 0
@@ -294,16 +295,20 @@ def evaluate_genomes(genomes, config):
                 for key in keys:
                     keys[key] = key in ai_chosen_moves
 
+                # ! If any moves are True, check for conflicting moves
+                conflicting_moves = False
                 if any(keys.values()):
                     # TODO: Better define later
                     conflicting_moves = (
                         keys[pygame.K_LEFT] and keys[pygame.K_RIGHT]
                     ) or (keys[pygame.K_DOWN] and keys[pygame.K_UP])
-
+                player.conflicting_moves = conflicting_moves
+                player.in_motion = False
                 if not conflicting_moves:
                     player.last_move_time = time.time()
                     # Move player
                     player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
+                    player.in_motion = True
 
                 # ! Reset keys for next player
                 for key in keys:
@@ -477,11 +482,21 @@ def draw_game(players, food_list):
             True,
             (255, 255, 255),
         )
-
-        WIN.blit(score_text, (SCREEN_WIDTH - 200, 10))  # Position as needed
-        WIN.blit(num_players_text, (SCREEN_WIDTH - 200, 40))  # Position as needed
-        WIN.blit(num_food_text, (SCREEN_WIDTH - 200, 70))  # Position as needed
-        WIN.blit(location_text, (SCREEN_WIDTH - 200, 100))  # Position as needed
+        conflicting_moves_text = font.render(
+            f"Conflicting Moves: {selected_player.conflicting_moves}",
+            True,
+            (255, 255, 255),
+        )
+        in_motion_text = font.render(
+            f"In Motion: {selected_player.in_motion}", True, (255, 255, 255)
+        )
+        stats_x = SCREEN_WIDTH - 300
+        WIN.blit(score_text, (stats_x, 10))  # Position as needed
+        WIN.blit(num_players_text, (stats_x, 40))  # Position as needed
+        WIN.blit(num_food_text, (stats_x, 70))  # Position as needed
+        WIN.blit(location_text, (stats_x, 100))  # Position as needed
+        WIN.blit(conflicting_moves_text, (stats_x, 130))
+        WIN.blit(in_motion_text, (stats_x, 160))
 
     pygame.display.flip()
 
