@@ -64,6 +64,34 @@ PUNISHMENT_EATEN = 2
 PUNISHMENT_INACTIVITY = 5
 
 
+
+def calculate_remaining_fitness( player_list, genomes_list):
+
+    for player_index, player in enumerate(player_list):
+        genomes_list[player_index].fitness = calculate_fitness(player)
+    print("Round time done")
+
+def correct_conflicting_movements(keys):
+    keys[pygame.K_LEFT] = keys[pygame.K_LEFT] ^ keys[pygame.K_RIGHT]
+    keys[pygame.K_DOWN] = keys[pygame.K_DOWN] ^ keys[pygame.K_UP]
+    keys[pygame.K_UP] = keys[pygame.K_DOWN] ^ keys[pygame.K_UP]
+    keys[pygame.K_RIGHT] = keys[pygame.K_LEFT] ^ keys[pygame.K_RIGHT]
+
+def remove_element_from_lists( index, *args):
+    if type(index) != int:
+        print("Ivalid type of index arg")
+    for arg in args:
+        arg.pop(index)
+    
+def check_player_collision(players_list, player):
+    colliding_players = [
+                    other_player
+                    for other_player in players_list
+                    if player != other_player and check_collision(player, other_player)
+                ]
+    for colliding_player in colliding_players:
+                    player_eaten_player(player, colliding_player)
+
 def check_for_game_events(players):
     """Check for game events such as quitting or clicking on a player
     Arguments:
@@ -77,7 +105,7 @@ def check_for_game_events(players):
             pygame.quit()
             quit()
         # Person presses escape
-        if event.type == pygame.KEYDOWN:
+        elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 pygame.quit()
                 quit()
@@ -102,6 +130,9 @@ def check_for_game_events(players):
 def goal_reached(players_list):
     MAX_SCORE = max(player.score for player in players_list)
     return MAX_SCORE >= SCORE_LIMIT
+
+def game_finished(end_round_time, player_list):
+    return time.time() >= end_round_time or len(player_list) == 0 or goal_reached(player_list)
 
 
 def get_fitness_components(player):
@@ -190,25 +221,12 @@ def evaluate_genomes(genomes, config):
     food_list = get_food(NUM_FOOD)
 
     while True:
-        if time.time() >= end_round_time or len(players_list) < 2:
-            for player_index, player in enumerate(players_list):
-                genomes_list[player_index].fitness = calculate_fitness(player)
-            print("Round time done")
-            for i in reversed(range(3)):
-                print(f"Starting next generation in {i+1}...", end="\r")
-                time.sleep(1)
+        if game_finished(end_round_time, players_list):
+            calculate_remaining_fitness(players_list, genomes_list)
             break
 
         # Continue the game loop
         players_list = check_for_game_events(players_list)
-
-        if len(players_list) == 0:
-            run = False
-            break
-
-        if goal_reached(players_list):
-            run = False
-            break
 
         GAME_TIME = round(
             (pygame.time.get_ticks() - start_time) / 1000, 2
@@ -237,7 +255,7 @@ def evaluate_genomes(genomes, config):
         for player_index in reversed(range(len(players_list))):
             # player_text = []
             player = players_list[player_index]
-            delete_player = True if player.failed else False
+            delete_player = player.failed
             if not delete_player:
                 # ! Player punishments
                 if player.score != 0:
@@ -258,7 +276,6 @@ def evaluate_genomes(genomes, config):
                 food_distances = list(
                     get_nearest_players_distances(player, food_list).values()
                 )[:FOOD_DETECTION]
-                wall_distances = get_distance_to_walls(player)
 
                 # Convert the collected data to a format the neural network will recognise
                 # ! Player location
@@ -296,35 +313,23 @@ def evaluate_genomes(genomes, config):
                     keys[key] = key in ai_chosen_moves
 
                 # ! If any moves are True, check for conflicting moves
-                conflicting_moves = False
-                if any(keys.values()):
-                    # TODO: Better define later
-                    conflicting_moves = (
-                        keys[pygame.K_LEFT] and keys[pygame.K_RIGHT]
-                    ) or (keys[pygame.K_DOWN] and keys[pygame.K_UP])
-                player.conflicting_moves = conflicting_moves
-                player.in_motion = False
-                if not conflicting_moves:
-                    player.last_move_time = time.time()
+                if any(keys):
                     # Move player
+                    correct_conflicting_movements(keys)
+                    player.last_move_time = time.time()
                     player.move(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
                     player.in_motion = True
+                else:
+                    player.in_motion = False
 
                 # ! Reset keys for next player
                 for key in keys:
                     keys[key] = False
 
             if not delete_player:
-                # Store players colliding with this player
-                colliding_players = [
-                    other_player
-                    for other_player in players_list
-                    if player != other_player and check_collision(player, other_player)
-                ]
-                for colliding_player in colliding_players:
-                    player_eaten_player(player, colliding_player)
+                check_player_collision(players_list , player)
 
-            if delete_player:
+            else:
                 # Set the fitness score
                 genomes_list[player_index].fitness = calculate_fitness(player)
                 fitness_components = get_fitness_components(player)
@@ -339,10 +344,8 @@ def evaluate_genomes(genomes, config):
                 print(f"{player.fail_reason:<20}")
                 # Set the player as failed
                 players_list[player_index].failed = True
-                # Remove them from the lists as we've modified the genome by reference (fucking hope I have)
-                players_list.pop(player_index)
-                models_list.pop(player_index)
-                genomes_list.pop(player_index)
+                # Remove them from the lists as we've modified the genome by reference (fucking hope I have) lol
+                remove_element_from_lists(player_index, players_list, models_list, genomes_list)
 
         if player_text:
             print(*player_text, sep="\n")
