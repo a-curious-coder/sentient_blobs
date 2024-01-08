@@ -34,6 +34,9 @@ class Player:
         self.peak_score = 0
         self.conflicting_moves = False
         self.in_motion = False
+        self.conflicting_moves_counter = 0
+        self.player_still = True
+        self.still_counter = 0
 
     def draw(self, win):
         self.radius = int(self.base_radius + self.score)
