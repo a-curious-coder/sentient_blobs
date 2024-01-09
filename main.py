@@ -14,6 +14,7 @@ from components.food import Food
 from components.player import Player
 from drawer import draw_stats
 from game_event_handler import handle_keydown, handle_mousebuttondown, quit_game
+from getters import *
 
 # Create a custom logger
 logger = logging.getLogger(__name__)
@@ -30,9 +31,6 @@ formatter = logging.Formatter("[%(levelname)s]\t%(message)s")
 # Add the formatter to the console handler
 ch.setFormatter(formatter)
 
-# Add the console handler to the logger
-logger.addHandler(ch)
-
 pygame.init()
 
 infoObject = pygame.display.Info()
@@ -43,23 +41,25 @@ SCREEN_HEIGHT = h // 2
 GAME_BORDER = 50
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-FPS = 30  # Desired frames per second
-SCORE_LIMIT = 100  # the maximum score of the game before we break the loop
-
+FPS = 60  # Desired frames per second
+SCORE_LIMIT = 200  # the maximum score of the game before we break the loop
 
 # Game settings
 MAX_SCORE = 0  # The highest score achieved by a player
-NUM_FOOD = 100
-ROUND_TIME = 15
-ITERATIONS = 1000
+NUM_FOOD = 250
+ROUND_TIME = 30
+FRAME_LIMIT = 600
 
 # NEAT settings
+MAX_GEN = 1000
 GENERATION = 0
 FOOD_DETECTION = 3
 PLAYER_DETECTION = 3
 
+
 # Can only eat other players if this player is at least this much bigger
 EAT_PLAYER_THRESHOLD = 0.1
+
 
 # Global settings
 THRESHOLD_INACTIVITY = 3
@@ -137,15 +137,6 @@ def check_for_game_events(players):
             event_actions[event_type](event, players)
 
     return players
-
-
-def goal_reached(players_list):
-    MAX_SCORE = max(player.score for player in players_list)
-    return MAX_SCORE >= SCORE_LIMIT
-
-
-def game_finished(players_list, end_round_time):
-    return time.time() >= end_round_time or len(players_list) == 0 or goal_reached(players_list)
 
 
 def reduce_player_score(player):
@@ -240,97 +231,13 @@ def delete_player(player_index, players_list, genomes_list, models_list):
     remove_element_from_lists(player_index, players_list, models_list, genomes_list)
 
 
-def evaluate_genomes(genomes, config):
-    """Evaluate the fitness of each genome in the genomes list
-    Arguments:
-        genomes {list} -- A list of genomes
-        config {neat.config} -- The NEAT configuration file
-    """
-    global SCREEN_WIDTH, SCREEN_HEIGHT, GENERATION, GAME_TIME, WIN  # use the global variable gen and SCREEN
-
-    print(f"{'Name':^10}{'Fitness':^10}{'Peak':^10}{'Score':^10}{'p_eaten':^10}{'f_eaten':^10}{'Distance':^10}{'Death Reason':<20}")
-
-    GENERATION += 1  # update the generation
-
-    # Calculate game's end time from now
-    end_round_time = ROUND_TIME + time.time()
-    clock = pygame.time.Clock()  # Create a clock object
-    start_time = (
-        pygame.time.get_ticks()
-    )  # reset the start_time after every time we update our generation
-
-    # ! Get the neat components
-    neat_components = get_neat_components(genomes, config)
-    players_list = neat_components["players"]
-    genomes_list = neat_components["genomes"]
-    models_list = neat_components["models"]
-
-    food_list = get_food(NUM_FOOD, players_list)
-
-    game_running = True
-    # ! GAME LOOP
-    while game_running:
-        no_players = len(players_list) == 0
-        if game_finished(players_list, end_round_time) or goal_reached(players_list) or no_players:
-            end_generation(genomes_list, players_list, models_list)
-            game_running = False
-            continue
-
-        players_list = check_for_game_events(players_list)
-
-        GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
-
-        clock.tick(FPS)
-
-        # Update player positions and check for collisions
-        for player_index in reversed(range(len(players_list))):
-            
-            player = players_list[player_index]
-
-            if player.failed:
-                delete_player(player_index, players_list, genomes_list, models_list)
-                continue
-
-            process_player_collision(players_list , player)
-
-            # ! Player punishments
-            if player.score > 0:
-                player.score = reduce_player_score(player)
-            else:
-                player.base_radius = reduce_player_base_radius(player)
-                if player.base_radius <= 1:
-                    player.failed = True
-                    player.fail_reason += "player didn't eat enough food"
-
-            # ! Gather inputs for player's genome
-            inputs = get_inputs(player, players_list, food_list)
-
-            # ! Get the output from the neural network
-            output = models_list[player_index].activate(inputs)
-
-            player = process_player_movement(player, output)
-            
-            if player.failed:
-                delete_player(player_index, players_list, genomes_list, models_list)
+def goal_reached(players_list):
+    MAX_SCORE = max(player.score for player in players_list)
+    return MAX_SCORE >= SCORE_LIMIT
 
 
-        # ! Update food positions and check for collisions
-        for food_item in food_list[
-            :
-        ]:  # Use a copy of the list to avoid issues with removing items during iteration
-            for player in players_list:
-                if check_collision(food_item, player):
-                    player = add_score(player)
-                    player.peak_score = max(player.score, player.peak_score)
-                    player.food_consumed += 1
-                    player.last_eaten_time = time.time()
-                    food_list.remove(food_item)
-                    break
-
-        # ! Ensure there are always correct number of food items on the screen
-        ensure_food(food_list, players_list)
-
-        draw_game(players_list, food_list)
+def game_finished(players_list, end_round_time):
+    return time.time() >= end_round_time or len(players_list) == 0 or goal_reached(players_list)
 
 
 def add_score(player):
@@ -344,7 +251,7 @@ def add_score(player):
 def ensure_food(food_list, players_list):
     if len(food_list) < NUM_FOOD:
         food_needed = NUM_FOOD - len(food_list)
-        food_list.extend(get_food(food_needed, players_list))
+        food_list.extend(get_food(food_needed, players_list, SCREEN_WIDTH, SCREEN_HEIGHT))
 
 
 def draw_game(players_list, food_list):
@@ -439,185 +346,150 @@ def draw_game(players_list, food_list):
     pygame.display.flip()
 
 
-# ! GETTERS
-def get_inputs(player, players_list, food_list):
-    player_distances = list(
-        calculate_and_sort_player_distances(player, players_list).values()
-    )[:PLAYER_DETECTION]
-
-    player_sizes = list(
-        get_nearest_players_sizes(player, players_list).values()
-    )[:PLAYER_DETECTION]
-
-    food_distances = list(
-        calculate_and_sort_player_distances(player, food_list).values()
-    )[:FOOD_DETECTION]
-
-    # Convert the collected data to a format the neural network will recognise
-    inputs = tuple(
-        [player.score, player.radius, player.x, player.y]
-        + player_distances
-        + player_sizes
-        + food_distances
-    )
-
-    return inputs
-
-
-def calculate_and_sort_player_distances(player, players):
-    distances = {}
-    for other_player in players:
-        if other_player != player:
-            dx = other_player.x - player.x
-            dy = other_player.y - player.y
-            distance = sqrt(dx * dx + dy * dy)
-            
-            # Ensure the distance is always positive
-            distance = max(distance - 2 * min(player.radius, other_player.radius), 0)
-            
-            distances[other_player.name] = distance
-
-    # Sort the dictionary by values (distances)
-    sorted_distances = dict(sorted(distances.items(), key=lambda item: item[1]))
-
-    # If there aren't 10 players, fill the remaining slots with 9999
-    while len(sorted_distances) < 10:
-        sorted_distances[f"Player_{len(sorted_distances)+1}"] = 9999
-
-    # Get the nearest 10 players
-    return dict(sorted(sorted_distances.items(), key=lambda item: item[1])[:10])
-
-
-def get_nearest_players_sizes(player, players):
-    # Assuming calculate_and_sort_player_distances function is available
-    nearest_players = calculate_and_sort_player_distances(player, players)
-
-    # Create a dictionary to store the sizes of the nearest players
-    sizes = {}
-
-    # Iterate through the nearest players
-    for other_player in players:
-        # Check if the other player is in the list of nearest players
-        if other_player.name in nearest_players:
-            # Add the player's size (radius) to the dictionary
-            sizes[other_player.name] = other_player.radius
-
-    while len(sizes) < 10:
-        sizes[f"FillerValue_{len(sizes)+1}"] = 0
-    # Return the dictionary
-    return sizes
-
-
-def get_neat_components(genomes, config) -> dict:
-    """Returns a dictionary of lists.
-
-    The lists contain the players, genomes, and models for each player.
-
+def evaluate_genomes(genomes, config):
+    """Evaluate the fitness of each genome in the genomes list
     Arguments:
-        genomes {list} -- A list of genomes.
-        config {neat.config} -- The NEAT configuration file.
-
-    Returns:
-        dict -- A dictionary of lists.
+        genomes {list} -- A list of genomes
+        config {neat.config} -- The NEAT configuration file
     """
-    players_list = []
-    genomes_list = []
-    models_list = []
+    global SCREEN_WIDTH, SCREEN_HEIGHT, GENERATION, GAME_TIME, WIN  # use the global variable gen and SCREEN
 
-    for _, genome in genomes:  # Replace 10 with the desired number of players
-        random_x = random.randint(GAME_BORDER, SCREEN_WIDTH - GAME_BORDER)
-        random_y = random.randint(GAME_BORDER, SCREEN_HEIGHT - GAME_BORDER)
-        # Check if the random position is within the radius of any other player
-        while any(
-            [
-                math.sqrt((random_x - player.x) ** 2 + (random_y - player.y) ** 2)
-                <= player.radius
-                for player in players_list
-            ]
-        ):
-            random_x = random.randint(GAME_BORDER, SCREEN_WIDTH - GAME_BORDER)
-            random_y = random.randint(GAME_BORDER, SCREEN_HEIGHT - GAME_BORDER)
+    print(f"{'Name':^10}{'Fitness':^10}{'Peak':^10}{'Score':^10}{'p_eaten':^10}{'f_eaten':^10}{'Distance':^10}{'Death Reason':<20}")
 
-        players_list.append(
-            Player(
-                random_x,
-                random_y,
-                f"Player {len(players_list)+1}",
-            )
-        )
+    GENERATION += 1  # update the generation
 
-        # Initialize the fitness score to 0
-        genome.fitness = 0
-        genomes_list.append(genome)
-        # Create a neural network for each genome
-        model = neat.nn.FeedForwardNetwork.create(
-            genome, config
-        )  # Set up the neural network for each genome using the configuration we set
-        models_list.append(model)  # Append the neural network in the list
+    # Calculate game's end time from now
+    end_round_time = ROUND_TIME + time.time()
+    clock = pygame.time.Clock()  # Create a clock object
+    start_time = (
+        pygame.time.get_ticks()
+    )  # reset the start_time after every time we update our generation
 
-    # Return a dictionary of lists
-    return {"players": players_list, "genomes": genomes_list, "models": models_list}
+    # ! Get the neat components
+    neat_components = get_neat_components(genomes, config, SCREEN_WIDTH, SCREEN_HEIGHT)
+    players_list = neat_components["players"]
+    genomes_list = neat_components["genomes"]
+    models_list = neat_components["models"]
+
+    food_list = get_food(NUM_FOOD, players_list, SCREEN_WIDTH, SCREEN_HEIGHT)
+
+    game_running = True
+    CURRENT_FRAME = 0
+    # ! GAME LOOP
+    while game_running:
+        CURRENT_FRAME += 1
+        print(CURRENT_FRAME)
+        no_players = len(players_list) == 0
+        if CURRENT_FRAME >= 600 or game_finished(players_list, end_round_time) or goal_reached(players_list) or no_players:
+            end_generation(genomes_list, players_list, models_list)
+            game_running = False
+            continue
+
+        players_list = check_for_game_events(players_list)
+
+        GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
+
+        clock.tick(FPS)
+
+        # Update player positions and check for collisions
+        for player_index in reversed(range(len(players_list))):
+            
+            player = players_list[player_index]
+
+            if player.failed:
+                delete_player(player_index, players_list, genomes_list, models_list)
+                continue
+
+            process_player_collision(players_list , player)
+
+            # ! Player punishments
+            if player.score > 0:
+                player.score = reduce_player_score(player)
+            else:
+                player.base_radius = reduce_player_base_radius(player)
+                if player.base_radius <= 1:
+                    player.failed = True
+                    player.fail_reason += "player didn't eat enough food"
+
+            # ! Gather inputs for player's genome
+            inputs = get_inputs(player, players_list, food_list)
+
+            # ! Get the output from the neural network
+            output = models_list[player_index].activate(inputs)
+
+            player = process_player_movement(player, output)
+            
+            if player.failed:
+                delete_player(player_index, players_list, genomes_list, models_list)
 
 
-def get_food(n: int, players: list) -> list:
-    """Returns a list of n food items
-    These are plotted within the game screen in locations where players aren't occupying.
-
-    Args:
-        n (int): The number of food items to generate.
-        players (list): A list of Player objects.
-
-    Returns:
-        list: A list of n food items.
-    """
-    food_list = []
-    occupied_positions = set([(player.x, player.y) for player in players])
-
-    for number in range(n):
-        while True:
-            x = random.randint(GAME_BORDER, SCREEN_WIDTH - GAME_BORDER)
-            y = random.randint(GAME_BORDER, SCREEN_HEIGHT - GAME_BORDER)
-            valid_position = True
-
-            for player in players:
-                if math.sqrt((x - player.x) ** 2 + (y - player.y) ** 2) <= player.radius:
-                    valid_position = False
+        # ! Update food positions and check for collisions
+        for food_item in food_list[
+            :
+        ]:  # Use a copy of the list to avoid issues with removing items during iteration
+            for player in players_list:
+                if check_collision(food_item, player):
+                    player = add_score(player)
+                    player.peak_score = max(player.score, player.peak_score)
+                    player.food_consumed += 1
+                    player.last_eaten_time = time.time()
+                    food_list.remove(food_item)
                     break
 
-            if valid_position:
-                food_list.append(Food(x, y, f"Food {number}"))
-                occupied_positions.add((x, y))
-                break
+        # ! Ensure there are always correct number of food items on the screen
+        ensure_food(food_list, players_list)
 
-    return food_list
+        draw_game(players_list, food_list)
 
 
-def get_fitness_components(player):
-    weights = {
-        "peak_score": 1,
-        "score": 1,
-        "players_eaten": 1,
-        "food_consumed": 1,
-        "distance_travelled": 1,
-    }
 
-    return {
-        "peak_score": player.peak_score * weights["peak_score"],
-        "score": player.score * weights["score"],
-        "players_eaten": player.players_eaten * weights["players_eaten"],
-        "food_consumed": player.food_consumed * weights["food_consumed"],
-        "distance_travelled": int(
-            player.distance_travelled * weights["distance_travelled"]
-        ),
-    }
+# Define a function to run NEAT algorithm to play flappy bird
+def run_NEAT(config_file):
+    
+    # The template for the configuration file can be found here:
+    #https://github.com/CodeReclaimers/neat-python/blob/master/examples/xor/config-feedforward
+    # The description of the options in the configuration file can be found here:
+    #https://neat-python.readthedocs.io/en/latest/config_file.html#defaultgenome-section
+    
+    # Use NEAT algorithm to build a neural network based on the pre-set configurtion
+    # Create a neat.config.Config object from the configuration file
+    config = neat.config.Config(neat.DefaultGenome, 
+                                neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet, 
+                                neat.DefaultStagnation,
+                                config_file)
+    
+    config.genome_config.initial_connection = "full_nodirect"
+
+    # Create a neat.population.Population object using the Config object created above
+    neat_pop = neat.population.Population(config)
+    
+    # Show the summary statistics of the learning progress
+    neat_pop.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    neat_pop.add_reporter(stats)
+    
+    # Call the run method on the Population object, giving it your fitness function and (optionally) the maximum number of generations you want NEAT to run
+    neat_pop.run(main, MAX_GEN)
+    
+    # Get the most fit genome genome as our winner with the statistics.best_genome() function
+    winner = stats.best_genome()
+    
+    # Show the final statistics
+    print(f'\nBest genome:\n{winner}')
+
 
 
 def main():
-    print(
-        "Yes... This is the main function to main.py file... Try running neat-ai.py instead"
-    )
-    return 0
+    config_file = 'config-feedforward.txt'
+    run_NEAT(config_file)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        # Clear console
+        print('\033c')
+        main(config_file)
+    except KeyboardInterrupt:
+        print('\nUser quit the game!')
+        quit()

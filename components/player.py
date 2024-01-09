@@ -8,7 +8,7 @@ class Player:
     def __init__(self, x, y, name, colour=(255, 255, 255)):
         self.x = x
         self.y = y
-        self.base_radius = 10
+        self.base_radius = 5
         self.radius = self.base_radius
         self.speed = 3
         self.name = name
@@ -33,8 +33,8 @@ class Player:
         # Log highest score
         self.peak_score = 0
         self.conflicting_moves = False
-        self.in_motion = False
         self.conflicting_moves_counter = 0
+        self.in_motion = False
         self.player_still = True
         self.still_counter = 0
 

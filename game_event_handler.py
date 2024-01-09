@@ -1,4 +1,5 @@
 """ This module contains functions that handle game events. """
+import pygame
 
 
 def quit_game(event, players):
