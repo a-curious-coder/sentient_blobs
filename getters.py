@@ -27,7 +27,7 @@ def get_inputs(player, players_list, food_list):
 
     # Convert the collected data to a format the neural network will recognise
     inputs = tuple(
-        [player.score, player.radius, player.x, player.y]
+        [player.score, player.value, player.x, player.y]
         + player_distances
         + player_sizes
         + food_distances
@@ -45,7 +45,7 @@ def calculate_and_sort_player_distances(player, players):
             distance = math.sqrt(dx * dx + dy * dy)
             
             # Ensure the distance is always positive
-            distance = max(distance - 2 * min(player.radius, other_player.radius), 0)
+            distance = max(distance - 2 * min(player.value, other_player.value), 0)
             
             distances[other_player.name] = distance
 
@@ -72,7 +72,7 @@ def get_nearest_players_sizes(player, players):
         # Check if the other player is in the list of nearest players
         if other_player.name in nearest_players:
             # Add the player's size (radius) to the dictionary
-            sizes[other_player.name] = other_player.radius
+            sizes[other_player.name] = other_player.value
 
     while len(sizes) < 10:
         sizes[f"FillerValue_{len(sizes)+1}"] = 0
@@ -103,7 +103,7 @@ def get_neat_components(genomes, config, w, h) -> dict:
         while any(
             [
                 math.sqrt((random_x - player.x) ** 2 + (random_y - player.y) ** 2)
-                <= player.radius
+                <= player.value
                 for player in players_list
             ]
         ):
@@ -152,7 +152,7 @@ def get_food(n: int, players: list, w, h) -> list:
             valid_position = True
 
             for player in players:
-                if math.sqrt((x - player.x) ** 2 + (y - player.y) ** 2) <= player.radius:
+                if math.sqrt((x - player.x) ** 2 + (y - player.y) ** 2) <= player.value:
                     valid_position = False
                     break
 
@@ -169,7 +169,7 @@ def get_fitness_components(player):
         "peak_score": 1,
         "score": 1,
         "players_eaten": 1,
-        "food_consumed": 1,
+        "food_eaten": 1,
         "distance_travelled": 1,
     }
 
@@ -177,7 +177,7 @@ def get_fitness_components(player):
         "peak_score": player.peak_score * weights["peak_score"],
         "score": player.score * weights["score"],
         "players_eaten": player.players_eaten * weights["players_eaten"],
-        "food_consumed": player.food_consumed * weights["food_consumed"],
+        "food_eaten": player.food_eaten * weights["food_eaten"],
         "distance_travelled": int(
             player.distance_travelled * weights["distance_travelled"]
         ),

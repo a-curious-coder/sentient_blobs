@@ -78,7 +78,7 @@ def calculate_player_fitness(player: Player) -> int:
     weights = {
         "score": 1,
         "players_eaten": 1, # NOTE: Could have some influence on fitness later on
-        "food_consumed": 1, # NOTE: Could have some influence on fitness later on
+        "food_eaten": 1, # NOTE: Could have some influence on fitness later on
     }
 
     # Calculate the score for each component
@@ -270,14 +270,14 @@ def draw_game(players_list, food_list):
         # Set colour between red and green based on score (0, max_score)
         # 0 = red, max_score = green
         # 0 = 255, max_score = 0
-        color = (255, 0, 0)
+        colour = (255, 0, 0)
         if MAX_SCORE > 0:
-            color = (
+            colour = (
                 255 - int(player.score / MAX_SCORE * 255),
                 int(player.score / MAX_SCORE * 255),
                 0,
             )
-        player.color = color
+        player.colour = colour
         player.draw(WIN)
 
     for food in food_list:
@@ -378,7 +378,6 @@ def evaluate_genomes(genomes, config):
     # ! GAME LOOP
     while game_running:
         CURRENT_FRAME += 1
-        print(CURRENT_FRAME)
         no_players = len(players_list) == 0
         if CURRENT_FRAME >= 600 or game_finished(players_list, end_round_time) or goal_reached(players_list) or no_players:
             end_generation(genomes_list, players_list, models_list)
@@ -421,17 +420,16 @@ def evaluate_genomes(genomes, config):
             
             if player.failed:
                 delete_player(player_index, players_list, genomes_list, models_list)
+            
+            player.peak_score = max(player.score, player.peak_score)
 
 
         # ! Update food positions and check for collisions
-        for food_item in food_list[
-            :
-        ]:  # Use a copy of the list to avoid issues with removing items during iteration
+        for food_item in food_list[:]:
             for player in players_list:
                 if check_collision(food_item, player):
-                    player = add_score(player)
-                    player.peak_score = max(player.score, player.peak_score)
-                    player.food_consumed += 1
+                    player.add_to_score(food_item.value)
+                    player.food_eaten += 1
                     player.last_eaten_time = time.time()
                     food_list.remove(food_item)
                     break
@@ -470,7 +468,7 @@ def run_NEAT(config_file):
     neat_pop.add_reporter(stats)
     
     # Call the run method on the Population object, giving it your fitness function and (optionally) the maximum number of generations you want NEAT to run
-    neat_pop.run(main, MAX_GEN)
+    neat_pop.run(evaluate_genomes, MAX_GEN)
     
     # Get the most fit genome genome as our winner with the statistics.best_genome() function
     winner = stats.best_genome()
@@ -489,7 +487,7 @@ if __name__ == "__main__":
     try:
         # Clear console
         print('\033c')
-        main(config_file)
+        main()
     except KeyboardInterrupt:
         print('\nUser quit the game!')
         quit()

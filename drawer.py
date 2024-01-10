@@ -10,7 +10,7 @@ def draw_stats(selected_player, WIN, SCREEN_WIDTH):
         f"Players Eaten: {selected_player.players_eaten}", True, (255, 255, 255)
     )
     num_food_text = font.render(
-        f"Food Consumed: {selected_player.food_consumed}", True, (255, 255, 255)
+        f"Food Consumed: {selected_player.food_eaten}", True, (255, 255, 255)
     )
     location_text = font.render(
         f"Location: ({selected_player.x:.0f}, {selected_player.y:.0f})",

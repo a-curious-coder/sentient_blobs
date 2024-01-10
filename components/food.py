@@ -1,6 +1,9 @@
-import pygame
 import random
+
+import pygame
+
 from utilities import get_random_colour
+
 
 class Food:
     radius = 2
@@ -10,6 +13,7 @@ class Food:
         self.y = y
         self.name = name
         self.colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        self.value = 1
 
     def set_position(self, x, y):
         self.x = x
