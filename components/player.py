@@ -3,16 +3,18 @@ import time
 
 import pygame
 
+import settings
+
 
 class Player:
     def __init__(self, x, y, name):
         self.name = name
         self.x = x
         self.y = y
-        self._score = 0
-        self.base_radius = 5
-        self._value = 0
-        self.speed = 3
+        self.score = 0
+        self.radius = 0
+        self.base_radius = settings.player["base_radius"]
+        self.speed = settings.player["base_speed"]
         self.colour = (
             random.randint(0, 255),
             random.randint(0, 255),
@@ -36,52 +38,50 @@ class Player:
         self.last_move_time = time.time()
         self.in_motion = False
 
-        # ! UNUSED
-        self.wall_touch_counter = 0
-
     def draw(self, win):
-        self._value = int(self.base_radius + self.score)
         # Draw the circle itself
-        pygame.draw.circle(win, self.colour, (self.x, self.y), self._value)
+        pygame.draw.circle(win, self.colour, (self.x, self.y), self.radius)
 
     def move(self, keys, width, height):
         self.distance_travelled += self.speed
 
         if keys[pygame.K_LEFT]:
-            self.x = max(self.x - self.speed, self._value)
+            self.x = max(self.x - self.speed, self.radius)
 
         if keys[pygame.K_RIGHT]:
-            self.x = min(self.x + self.speed, width - self._value)
+            self.x = min(self.x + self.speed, width - self.radius)
 
         if keys[pygame.K_UP]:
-            self.y = max(self.y - self.speed, self._value)
+            self.y = max(self.y - self.speed, self.radius)
 
         if keys[pygame.K_DOWN]:
-            self.y = min(self.y + self.speed, height - self._value)
+            self.y = min(self.y + self.speed, height - self.radius)
+
 
     def add_to_score(self, value):
         self.score += value
+        self.peak_score = max(self.score, self.peak_score)
+
+    def punish(self):
+        self.score -= (self.score * settings.player['score_reduction']) if self.score > 1 else 0
+
 
     @property
-    def score(self):
-        return round(self._score)
-
-    @score.setter
-    def score(self, value):
-        if value < 0:
-            self._score = 0
-        else:
-            self._score = value
+    def radius(self):
+        return self.base_radius + self.score
     
+    @radius.setter
+    def radius(self, value):
+        self.base_radius = max(0, value - self.score)
+
     @property
     def value(self):
         """ The value is comprised of the player's base radius and the score """
-        return round(self._value)
-
+        return round(self.base_radius + self.score)
+    
     @value.setter
     def value(self, value):
         if value < 0:
-            self._value = 0
+            self.radius = 0
         else:
-            self._value = value
-
+            self.radius = value

@@ -1,0 +1,6 @@
+When attempting to train the neural networks to make moves for each player, there was a strange phenomenon where, eventually, the majority of the players would freeze. I learned that this was because the neural networks were outputting equal probabilities for conflicting moves. In plain english, each players digital brains were saying "Go left and right at the same time". See the issue with that? So, in the effort to mitigate this problem and encourage each neural network to make more concise and singular decisions with regards to movement, I implemented some post-processing to the output of the neural networks. The post-processing adds random but small amounts of noise to the neural networks output. Thus, a random move is made if the move probabilities are equal.
+
+However, I already foresee this as an issue because it means the player can only move in 1 of 4 directions when they should be able to move in 8. The diagonals are valid moves too; this noise function eliminates that possibility. I will have to find a way to mitigate this issue in the future.
+
+# Idea 💡
+Perhaps there's an idea here... Instead of getting the neural networks to produce four outputs, it could produce a singular float value output between 0 and 1. Depending on where that value lands will dictate which direction in a 360 radius the player moves in.

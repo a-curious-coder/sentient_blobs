@@ -2,6 +2,7 @@ import random
 
 import pygame
 
+import settings
 from utilities import get_random_colour
 
 
@@ -13,7 +14,7 @@ class Food:
         self.y = y
         self.name = name
         self.colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        self.value = 1
+        self.value = settings.food["value"]
 
     def set_position(self, x, y):
         self.x = x

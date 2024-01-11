@@ -2,6 +2,7 @@
 import math
 import time
 
+import settings
 from components.player import Player
 
 
@@ -15,7 +16,7 @@ def check_collision(obj1, obj2) -> bool:
     dx = obj1.x - obj2.x
     dy = obj1.y - obj2.y
     distance = math.sqrt(dx * dx + dy * dy)
-    threshold = obj1.value + (obj1.value * 0.1) + obj2.value
+    threshold = obj1.radius + (obj1.radius * 0.1) + obj2.radius
     return distance <= threshold
 
 
@@ -27,20 +28,12 @@ def player_eaten_player(player: Player, colliding_player: Player) -> None:
         colliding_player {Player} -- Player that was eaten
     """
     # Is player 10% bigger than the colliding player
-    if player.value > colliding_player.value * 1.1:
+    if player.radius > colliding_player.radius * (1 + settings.player["eat_player_threshold"]):
         # If the player's score is 0, then check if the player's radius is equal to radius
-        if player.base_radius == player.value: 
-            player.add_to_score(colliding_player.value)
-        else:
-            # ! To accomodate for a player that's lost some base radius size
-            player.base_radius += colliding_player.base_radius
-            if player.base_radius > 10:
-                player.add_to_score(player.base_radius - 10)
-                player.score = player.base_radius - 10
-                player.base_radius = 10
-        
-        player.peak_score = max(player.score, player.peak_score)
+        player.add_to_score(colliding_player.value * settings.player["score_consumption"])
         player.players_eaten += 1
         player.last_eaten_time = time.time()
+        
+        # ! Set the colliding player values
         colliding_player.failed = True
         colliding_player.fail_reason += f"eaten by {player.name} at {player.score}"

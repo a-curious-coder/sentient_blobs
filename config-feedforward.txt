@@ -2,7 +2,7 @@
 [NEAT]
 fitness_criterion     = max
 fitness_threshold     = 200
-pop_size              = 50
+pop_size              = 25
 reset_on_extinction   = True
 
 [DefaultStagnation]
@@ -17,7 +17,7 @@ min_species_size   = 2
 
 [DefaultGenome]
 # node activation options
-activation_default      = tanh
+activation_default      = sigmoid
 activation_mutate_rate  = 0.3
 activation_options      = sigmoid
 

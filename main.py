@@ -9,6 +9,7 @@ import neat
 import numpy as np
 import pygame
 
+import settings
 from collision_logic import check_collision, player_eaten_player
 from components.food import Food
 from components.player import Player
@@ -38,33 +39,31 @@ w = infoObject.current_w
 h = infoObject.current_h
 SCREEN_WIDTH = w // 2
 SCREEN_HEIGHT = h // 2
-GAME_BORDER = 50
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-FPS = 60  # Desired frames per second
+GAME_PADDING = settings.game["padding"]
+FPS = settings.game["fps"]
+NUM_FOOD = settings.game["num_food"]
+
 SCORE_LIMIT = 200  # the maximum score of the game before we break the loop
 
 # Game settings
 MAX_SCORE = 0  # The highest score achieved by a player
-NUM_FOOD = 250
 ROUND_TIME = 30
 FRAME_LIMIT = 600
 
 # NEAT settings
-MAX_GEN = 1000
+MAX_GEN = settings.neat["max_gen"]
 GENERATION = 0
-FOOD_DETECTION = 3
-PLAYER_DETECTION = 3
-
+FOOD_DETECTION = settings.player["food_detection"]
+PLAYER_DETECTION = settings.player["player_detection"]
+SCORE_REDUCTION = settings.player["score_reduction"]
 
 # Can only eat other players if this player is at least this much bigger
-EAT_PLAYER_THRESHOLD = 0.1
+EAT_PLAYER_THRESHOLD =settings.player["eat_player_threshold"]
 
 
 # Global settings
-THRESHOLD_INACTIVITY = 3
-PUNISHMENT_EATEN = 2
-PUNISHMENT_INACTIVITY = 5
 CONFLICTING_MOVES_PENALTY = 0.0015
 
 def calculate_remaining_fitness(player_list: list, genomes_list):
@@ -87,12 +86,13 @@ def calculate_player_fitness(player: Player) -> int:
     fitness_score = score_component
 
     if player.failed:
-        fitness_score /= 2
-
-    fitness_score = int(fitness_score - player.conflicting_moves_counter * CONFLICTING_MOVES_PENALTY)
+        fitness_score /= 4
+    punishment = math.ceil(player.conflicting_moves_counter * CONFLICTING_MOVES_PENALTY)
+    if punishment > 0:
+        fitness_score -= punishment
 
     # Return the final fitness score
-    return fitness_score
+    return int(fitness_score)
 
 
 def conflicting_moves(keys) -> bool:
@@ -138,18 +138,13 @@ def check_for_game_events(players):
 
     return players
 
-
-def reduce_player_score(player):
-    return player.score - (player.score * 0.002) if player.score > 1 else 0
-
-
-def reduce_player_base_radius(player):
-    return (
-        player.base_radius - (player.base_radius * 0.001)
-        if player.base_radius > 1
-        else 1
-    )
-
+# Adjust network output with random noise
+def adjust_output_with_noise(network_output, noise_level=0.03):
+    # Add random noise to the network's output
+    noisy_output = network_output + np.random.normal(0, noise_level, size=network_output.shape)
+    # Ensure the probabilities sum to 1
+    noisy_output = np.clip(noisy_output, 0, 1) / np.sum(noisy_output)
+    return noisy_output
 
 def end_generation(genomes_list, players_list, models_list):
     for i, player in enumerate(players_list):
@@ -180,7 +175,7 @@ def process_player_movement(player, output):
 
     # Convert the output to probabilities of which choice it's making
     probabilities = np.exp(output) / np.sum(np.exp(output))
-
+    probabilities = adjust_output_with_noise(probabilities)
     # Choose the action with the highest probability
     # NOTE: A single action could select multiple moves as some values represent pairs of simultaneous moves
     max_probability = np.max(probabilities)
@@ -238,14 +233,6 @@ def goal_reached(players_list):
 
 def game_finished(players_list, end_round_time):
     return time.time() >= end_round_time or len(players_list) == 0 or goal_reached(players_list)
-
-
-def add_score(player):
-    if player.base_radius == 10: # TODO: Change this to a constant
-        player.score += 1
-    else:
-        player.base_radius = player.base_radius + 1 if player.base_radius <= 9 else 10
-    return player
 
 
 def ensure_food(food_list, players_list):
@@ -402,13 +389,10 @@ def evaluate_genomes(genomes, config):
             process_player_collision(players_list , player)
 
             # ! Player punishments
-            if player.score > 0:
-                player.score = reduce_player_score(player)
-            else:
-                player.base_radius = reduce_player_base_radius(player)
-                if player.base_radius <= 1:
-                    player.failed = True
-                    player.fail_reason += "player didn't eat enough food"
+            starve_value = int(player.score * SCORE_REDUCTION)
+            
+            # player.score = player.reduce_score(starve_value)
+            player.score -= starve_value
 
             # ! Gather inputs for player's genome
             inputs = get_inputs(player, players_list, food_list)
@@ -428,7 +412,8 @@ def evaluate_genomes(genomes, config):
         for food_item in food_list[:]:
             for player in players_list:
                 if check_collision(food_item, player):
-                    player.add_to_score(food_item.value)
+                    # player.add_to_score(food_item.value)
+                    player.score += 1
                     player.food_eaten += 1
                     player.last_eaten_time = time.time()
                     food_list.remove(food_item)
@@ -436,9 +421,8 @@ def evaluate_genomes(genomes, config):
 
         # ! Ensure there are always correct number of food items on the screen
         ensure_food(food_list, players_list)
-
+        
         draw_game(players_list, food_list)
-
 
 
 # Define a function to run NEAT algorithm to play flappy bird
@@ -475,7 +459,6 @@ def run_NEAT(config_file):
     
     # Show the final statistics
     print(f'\nBest genome:\n{winner}')
-
 
 
 def main():

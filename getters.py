@@ -5,12 +5,13 @@ import random
 import neat
 import pygame
 
+import settings
 from components.food import Food
 from components.player import Player
 
-GAME_BORDER = 50
-FOOD_DETECTION = 3
-PLAYER_DETECTION = 3
+GAME_BORDER = settings.game["padding"]
+FOOD_DETECTION = settings.player["food_detection"]
+PLAYER_DETECTION = settings.player["player_detection"]
 
 def get_inputs(player, players_list, food_list):
     player_distances = list(
@@ -27,7 +28,7 @@ def get_inputs(player, players_list, food_list):
 
     # Convert the collected data to a format the neural network will recognise
     inputs = tuple(
-        [player.score, player.value, player.x, player.y]
+        [player.score, player.radius, player.x, player.y]
         + player_distances
         + player_sizes
         + food_distances
@@ -45,7 +46,7 @@ def calculate_and_sort_player_distances(player, players):
             distance = math.sqrt(dx * dx + dy * dy)
             
             # Ensure the distance is always positive
-            distance = max(distance - 2 * min(player.value, other_player.value), 0)
+            distance = max(distance - 2 * min(player.radius, other_player.radius), 0)
             
             distances[other_player.name] = distance
 
@@ -72,7 +73,7 @@ def get_nearest_players_sizes(player, players):
         # Check if the other player is in the list of nearest players
         if other_player.name in nearest_players:
             # Add the player's size (radius) to the dictionary
-            sizes[other_player.name] = other_player.value
+            sizes[other_player.name] = other_player.radius
 
     while len(sizes) < 10:
         sizes[f"FillerValue_{len(sizes)+1}"] = 0
@@ -103,7 +104,7 @@ def get_neat_components(genomes, config, w, h) -> dict:
         while any(
             [
                 math.sqrt((random_x - player.x) ** 2 + (random_y - player.y) ** 2)
-                <= player.value
+                <= player.radius
                 for player in players_list
             ]
         ):
@@ -152,7 +153,7 @@ def get_food(n: int, players: list, w, h) -> list:
             valid_position = True
 
             for player in players:
-                if math.sqrt((x - player.x) ** 2 + (y - player.y) ** 2) <= player.value:
+                if math.sqrt((x - player.x) ** 2 + (y - player.y) ** 2) <= player.radius + 20:
                     valid_position = False
                     break
 
