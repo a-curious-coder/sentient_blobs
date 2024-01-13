@@ -30,12 +30,19 @@ When agents are training, click on any one to see the nearest three food items a
 ## Inputs
 Each blob's neural network receives inputs to best determine the next action
 - Current
+
 ## Fitness Function
 <!-- This will have to be updated in accordance with the fitness function being changed -->
 The fitness function is the what determines how well an agent is doing. The fitness of a blob is calculated by their score. The player loses mass every 0.2 seconds to encourage eating.
 
+## Deployment 
+Since the game was made using the Pygame library, the only viable way I could find to deploy it to web was using pygbag. Pygbag is a library that allows pygame to be run in the browser. The only downside is that it is slow but also limited with regards to certain features that would work in pygame but not in pygbag. E.g. File drag and drop.
+
+Moreover, the neat-python library isn't really supported as it reads the 'neat' import within the main.py file. However, the workaround was downloading the neat-python source files and importing them ALL directly into main. Sorted. I believe this small workaround and discovery will unlock a lot of potential for pygame games to be deployed to the web with neat ai.
+
 ## Citations
 [Neataptic](https://wagenaartje.github.io/neataptic/articles/agario/)
+[neat-python](https://neat-python.readthedocs.io/en/latest/)
 
 
 

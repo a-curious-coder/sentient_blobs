@@ -17,6 +17,8 @@ game = dict(
     padding = 50,
     fps = 40,
     num_food = 250,
+    max_score = 1000,
+    frame_limit = 600
 )
 
 neat = dict(

@@ -9,7 +9,7 @@ __pycache__/
 # Ignore build output directories
 /build/
 /dist/
-
+sentient_blobs/build/
 # Ignore virtual environment
 /.venv/
 
