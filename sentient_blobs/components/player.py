@@ -1,28 +1,23 @@
+import math
 import random
 import time
 
 import numpy as np
 import pygame
 import settings
-from ai_utilities import adjust_output_with_noise, conflicting_moves
+from ai_utilities import adjust_output_with_noise, conflicting_moves, get_random_colour
+from components.game_circle import Circle
 
 
-class Player:
+class Player(Circle):
     
     def __init__(self, x, y, name):
+        colour = get_random_colour()
+        super().__init__(x, y, settings.player["base_radius"], colour, settings.player["base_radius"])
         self.name = name
-        self.x = x
-        self.y = y
         self.score = 0
-        self.radius = 0
         self.base_radius = settings.player["base_radius"]
         self.speed = settings.player["base_speed"]
-        self.colour = (
-            random.randint(0, 255),
-            random.randint(0, 255),
-            random.randint(0, 255),
-        )
-
         self.last_eaten_time = time.time()
         self.players_eaten = 0
         self.food_eaten = 0
@@ -39,10 +34,14 @@ class Player:
         self.conflicting_moves_counter = 0
         self.last_move_time = time.time()
         self.in_motion = False
+        self.colliding = False
 
     def draw(self, win):
-        # Draw the circle itself
+        # Draw the player with border
+        border_color = (255,0,255, 50) if self.colliding else (255, 255, 255, 50)
+        pygame.draw.circle(win, border_color, (self.x, self.y), self.radius + 2)
         pygame.draw.circle(win, self.colour, (self.x, self.y), self.radius)
+
 
     def move(self, keys, width, height):
         self.distance_travelled += self.speed
@@ -59,6 +58,13 @@ class Player:
         if keys[pygame.K_DOWN]:
             self.y = min(self.y + self.speed, height - self.radius)
 
+    def collides_with(self, other: Circle):
+        dx = self.x - other.x
+        dy = self.y - other.y
+        distance = math.sqrt(dx * dx + dy * dy)
+        threshold = self.radius + (self.radius * 0.1) + other.radius
+        return distance <= threshold
+    
     def process_player_movement(self, output, w, h):
         keys = {
             pygame.K_LEFT: False,
@@ -105,30 +111,10 @@ class Player:
         else:
             self.in_motion = False
 
-
     def add_to_score(self, value):
         self.score += value
+        self.radius = self.base_radius + (self.score)
         self.peak_score = max(self.score, self.peak_score)
 
     def punish(self):
         self.score -= (self.score * settings.player['score_reduction']) if self.score > 1 else 0
-
-    @property
-    def radius(self):
-        return self.base_radius + self.score
-    
-    @radius.setter
-    def radius(self, value):
-        self.base_radius = max(0, value - self.score)
-
-    @property
-    def value(self):
-        """ The value is comprised of the player's base radius and the score """
-        return round(self.base_radius + self.score)
-    
-    @value.setter
-    def value(self, value):
-        if value < 0:
-            self.radius = 0
-        else:
-            self.radius = value

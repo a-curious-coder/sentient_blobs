@@ -3,21 +3,19 @@ import random
 import pygame
 import settings
 from ai_utilities import get_random_colour
+from components.game_circle import Circle
 
 
-class Food:
+class Food(Circle):
     radius = 2
 
     def __init__(self, x, y, name):
-        self.x = x
-        self.y = y
+        super().__init__(x, y, self.radius, (255, 0, 255), settings.food["value"])
         self.name = name
-        self.colour = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        self.value = settings.food["value"]
 
-    def set_position(self, x, y):
-        self.x = x
-        self.y = y
-
-    def draw(self, win):
-        pygame.draw.circle(win, self.colour, (self.x, self.y), self.radius)
+    def collides_with(self, other):
+        dx = self.x - other.x
+        dy = self.y - other.y
+        distance = math.sqrt(dx * dx + dy * dy)
+        threshold = self.radius + (self.radius * 0.1) + other.radius
+        return distance <= threshold

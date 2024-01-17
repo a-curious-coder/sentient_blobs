@@ -13,17 +13,21 @@ import settings
 from collision_logic import check_collision, player_eaten_player
 from components.food import Food
 from components.player import Player
+from components.utilities.quadtree import QuadTree
 from drawer import draw_stats
 from game_event_handler import handle_keydown, handle_mousebuttondown, quit_game
 from getters import *
+
+# Import clock
+from pygame import time as pytime
 
 pygame.init()
 
 infoObject = pygame.display.Info()
 w = infoObject.current_w
 h = infoObject.current_h
-SCREEN_WIDTH = w // 2
-SCREEN_HEIGHT = h // 2
+SCREEN_WIDTH = w
+SCREEN_HEIGHT = h
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 GAME_PADDING = settings.game["padding"]
@@ -46,7 +50,7 @@ SCORE_REDUCTION = settings.player["score_reduction"]
 
 # Can only eat other players if this player is at least this much bigger
 EAT_PLAYER_THRESHOLD =settings.player["eat_player_threshold"]
-
+CALCULATIONS = 0
 
 # Global settings
 CONFLICTING_MOVES_PENALTY = 0.0015
@@ -81,11 +85,14 @@ def calculate_player_fitness(player: Player) -> int:
 
 
 def process_player_collision(players_list, player):
-    colliding_players = [
-                    other_player
-                    for other_player in players_list
-                    if player != other_player and check_collision(player, other_player)
-                ]
+    colliding_players = []
+    CALCULATIONS = 0
+    for other_player in players_list:
+        if player != other_player:
+            CALCULATIONS += 1
+            if check_collision(player, other_player):
+                colliding_players.append(other_player)
+
     for colliding_player in colliding_players:
         player_eaten_player(player, colliding_player)
 
@@ -169,15 +176,15 @@ def ensure_food(food_list, players_list):
         food_list.extend(get_food(food_needed, players_list, SCREEN_WIDTH, SCREEN_HEIGHT))
 
 
-def draw_game(players_list, food_list):
+def draw_game(players_list, food_list, quadtree):
     """Draw the game screen
     Arguments:
         players {list} -- A list of players
         food_list {list} -- A list of food items
     """
     # Background
-    WIN.fill((0, 50, 0))
-
+    WIN.fill((0, 0, 0))
+    quadtree.draw(WIN)
     # Get highest score
     MAX_SCORE = max(player.score for player in players_list)
 
@@ -257,7 +264,17 @@ def draw_game(players_list, food_list):
                 )
         # Draw stats for the selected player
         draw_stats(selected_player, WIN, SCREEN_WIDTH)
-
+    
+    # # Draw num of collisions
+    font = pygame.font.SysFont("Arial", 18)
+    text = font.render(f"Collisions: {COLLISIONS}", True, (255, 255, 255))
+    WIN.blit(text, (SCREEN_WIDTH *0.9, 10))
+    # Draw fps
+    fps = font.render(f"FPS: {int(CLOCK.get_fps())}", True, (255, 255, 255))
+    WIN.blit(fps, (SCREEN_WIDTH *0.9, 40))
+    # Draw calculations
+    calculations_text = font.render(f"Calculations: {CALCULATIONS}", True, (255, 255, 255))
+    WIN.blit(calculations_text, (SCREEN_WIDTH *0.9, 70))
     pygame.display.flip()
 
 
@@ -267,15 +284,14 @@ def evaluate_genomes(genomes, config):
         genomes {list} -- A list of genomes
         config {neat.config} -- The NEAT configuration file
     """
-    global CURRENT_FRAME, SCREEN_WIDTH, SCREEN_HEIGHT, GENERATION, GAME_TIME, WIN  # use the global variable gen and SCREEN
-
+    global CLOCK, CURRENT_FPS, COLLISIONS, CALCULATIONS, CURRENT_FRAME, SCREEN_WIDTH, SCREEN_HEIGHT, GENERATION, GAME_TIME, WIN  # use the global variable gen and SCREEN
     print(f"{'Name':^10}{'Fitness':^10}{'Peak':^10}{'Score':^10}{'p_eaten':^10}{'f_eaten':^10}{'Distance':^10}{'Death Reason':<20}")
 
     GENERATION += 1  # update the generation
 
     # Calculate game's end time from now
     end_round_time = ROUND_TIME + time.time()
-    clock = pygame.time.Clock()  # Create a clock object
+    CLOCK = pygame.time.Clock()  # Create a clock object
     start_time = (
         pygame.time.get_ticks()
     )  # reset the start_time after every time we update our generation
@@ -287,11 +303,15 @@ def evaluate_genomes(genomes, config):
     models_list = neat_components["models"]
 
     food_list = get_food(NUM_FOOD, players_list, SCREEN_WIDTH, SCREEN_HEIGHT)
-
+    boundary = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
     game_running = True
+    CALCULATIONS = 0
     CURRENT_FRAME = 0
     # ! GAME LOOP
     while game_running:
+        quadtree = QuadTree(boundary, 4)
+        for element in players_list + food_list:
+            quadtree.insert(element)
         CURRENT_FRAME += 1
 
         # ! Check if the game is finished
@@ -304,19 +324,36 @@ def evaluate_genomes(genomes, config):
 
         GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
 
-        clock.tick(FPS)
+        CLOCK.tick(FPS)
 
-        # Update player positions and check for collisions
+        COLLISIONS = 0
+        CALCULATIONS = 0
+        # Check for collisions
         for player_index in reversed(range(len(players_list))):
-            
             player = players_list[player_index]
-
+            player.colliding = False
             if player.failed:
                 delete_player(player_index, players_list, genomes_list, models_list)
                 continue
+            player_area = pygame.Rect(player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2)
+            collided_circles = quadtree.query(player_area)
+            # draw the range
+            pygame.draw.rect(WIN, (255, 255, 255), player_area, 1)
 
-            process_player_collision(players_list , player)
+            for circle in collided_circles:
+                if player != circle:
+                    CALCULATIONS += 1
+                    if player.collides_with(circle):
+                        COLLISIONS += 1
+                        player.colliding = True
 
+                        if isinstance(circle, Player):
+                            player_eaten_player(player, circle)
+                        elif isinstance(circle, Food):
+                            player.add_to_score(circle.value)
+                            player.food_eaten += 1
+                            player.last_eaten_time = time.time()
+                            food_list.remove(circle)
             # ! Player punishments
             starve_value = int(player.score * SCORE_REDUCTION)
             
@@ -333,27 +370,58 @@ def evaluate_genomes(genomes, config):
             
             if player.failed:
                 delete_player(player_index, players_list, genomes_list, models_list)
+
+        
+
+        # Update player positions and check for collisions
+        # for player_index in reversed(range(len(players_list))):
             
-            player.peak_score = max(player.score, player.peak_score)
+        #     player = players_list[player_index]
+
+        #     if player.failed:
+        #         delete_player(player_index, players_list, genomes_list, models_list)
+        #         continue
+
+        #     process_player_collision(players_list, player)
+
+        #     # ! Player punishments
+        #     starve_value = int(player.score * SCORE_REDUCTION)
+            
+        #     # player.score = player.reduce_score(starve_value)
+        #     player.score -= starve_value
+
+        #     # ! Gather inputs for player's genome
+        #     inputs = get_inputs(player, players_list, food_list)
+
+        #     # ! Get the output from the neural network
+        #     output = models_list[player_index].activate(inputs)
+
+        #     player.process_player_movement(output, SCREEN_WIDTH, SCREEN_HEIGHT)
+            
+        #     if player.failed:
+        #         delete_player(player_index, players_list, genomes_list, models_list)
+            
+        #     player.peak_score = max(player.score, player.peak_score)
 
 
-        # ! Update food positions and check for collisions
-        for food_item in food_list[:]:
-            for player in players_list:
-                if check_collision(food_item, player):
-                    # player.add_to_score(food_item.value)
-                    player.score += 1
-                    player.food_eaten += 1
-                    player.last_eaten_time = time.time()
-                    food_list.remove(food_item)
-                    break
+        # # ! Update food positions and check for collisions
+        # for food_item in food_list[:]:
+        #     for player in players_list:
+        #         CALCULATIONS += 1
+        #         if check_collision(food_item, player):
+        #             # player.add_to_score(food_item.value)
+        #             player.score += 1
+        #             player.food_eaten += 1
+        #             player.last_eaten_time = time.time()
+        #             food_list.remove(food_item)
+        #             break
 
         # ! Ensure there are always correct number of food items on the screen
         ensure_food(food_list, players_list)
+        draw_game(players_list, food_list, quadtree)
+        quadtree.draw(WIN)
         
-        draw_game(players_list, food_list)
-
-
+        
 def main(config_file):
     
     # The template for the configuration file can be found here:
@@ -391,11 +459,8 @@ def main(config_file):
     print(f'\nBest genome:\n{winner}')
 
 
-
-
 if __name__ == "__main__":
     try:
-        # Clear console
         print('\033c')
         config_file = 'config-feedforward.txt'
 

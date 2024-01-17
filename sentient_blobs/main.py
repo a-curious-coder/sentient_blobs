@@ -233,7 +233,7 @@ async def draw_game(players_list, food_list):
             if food_obj:
                 pygame.draw.aaline(
                     surface=WIN,
-                    color=(0, 255, 0, 100),
+                    colour=(0, 255, 0, 100),
                     start_pos=(player_x, player_y),
                     end_pos=(food_obj.x, food_obj.y)
                 )
@@ -249,7 +249,7 @@ async def draw_game(players_list, food_list):
             if other_player:
                 pygame.draw.aaline(
                     surface=WIN,
-                    color=(255, 0, 0, 100),
+                    colour=(255, 0, 0, 100),
                     start_pos=(player_x, player_y),
                     end_pos=(other_player.x, other_player.y),
                 )
