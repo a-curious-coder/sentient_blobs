@@ -17,6 +17,7 @@ from game_event_handler import (
 )
 from getters import *
 from neat import *
+from pygame.math import Vector2
 
 pygame.init()
 
@@ -138,13 +139,7 @@ def check_for_game_events(players, models):
                 net = neat.nn.FeedForwardNetwork.create(new_genome, config)
                 # Calculate mouse position
                 mouse_x, mouse_y = pygame.mouse.get_pos()
-                players.append(
-                    Player(
-                        mouse_x,
-                        mouse_y,
-                        f"Player {len(players)+1}",
-                    )
-                )
+                players.append(Player(Vector2(mouse_x, mouse_y), len(players)+1))
                 models.append(net)
 
                 print(f"Loaded player model from {filepath}")
@@ -233,7 +228,7 @@ async def draw_game(players_list, food_list):
             if food_obj:
                 pygame.draw.aaline(
                     surface=WIN,
-                    colour=(0, 255, 0, 100),
+                    color=(0, 255, 0, 100),
                     start_pos=(player_x, player_y),
                     end_pos=(food_obj.x, food_obj.y)
                 )
@@ -249,7 +244,7 @@ async def draw_game(players_list, food_list):
             if other_player:
                 pygame.draw.aaline(
                     surface=WIN,
-                    colour=(255, 0, 0, 100),
+                    color=(255, 0, 0, 100),
                     start_pos=(player_x, player_y),
                     end_pos=(other_player.x, other_player.y),
                 )
@@ -285,26 +280,14 @@ async def main():
         print(f"Player 1: {random_x}, {random_y}")
         players_list = []
 
-        players_list.append(
-            Player(
-                random_x,
-                random_y,
-                f"Player {len(players_list)+1}",
-            )
-        )
+        players_list.append(Player(Vector2(random_x, random_y), len(players_list)+1))
 
         models_list = [winner_net]
 
         for _ in range(50):
             random_x = random.randint(GAME_BORDER, SCREEN_WIDTH - GAME_BORDER)
             random_y = random.randint(GAME_BORDER, SCREEN_HEIGHT - GAME_BORDER)
-            players_list.append(
-                Player(
-                    random_x,
-                    random_y,
-                    f"Player {len(players_list)+1}",
-                )
-            )
+            players_list.append(Player(Vector2(random_x, random_y), len(players_list)+1))
             models_list.append(winner_net)
         food_list = get_food(NUM_FOOD, players_list, SCREEN_WIDTH, SCREEN_HEIGHT)
 

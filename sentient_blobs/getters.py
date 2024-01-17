@@ -4,10 +4,10 @@ import random
 
 import neat
 import pygame
-
 import settings
 from components.food import Food
 from components.player import Player
+from pygame.math import Vector2
 
 GAME_BORDER = settings.game["padding"]
 FOOD_DETECTION = settings.player["food_detection"]
@@ -28,7 +28,7 @@ def get_inputs(player, players_list, food_list):
 
     # Convert the collected data to a format the neural network will recognise
     inputs = tuple(
-        [player.score, player.radius, player.x, player.y]
+        [player.score, player.radius, player.position.x, player.position.y]
         + player_distances
         + player_sizes
         + food_distances
@@ -41,8 +41,8 @@ def calculate_and_sort_player_distances(player, players):
     distances = {}
     for other_player in players:
         if other_player != player:
-            dx = other_player.x - player.x
-            dy = other_player.y - player.y
+            dx = other_player.position.x - player.position.x
+            dy = other_player.position.y - player.position.y
             distance = math.sqrt(dx * dx + dy * dy)
             
             # Ensure the distance is always positive
@@ -96,7 +96,8 @@ def get_neat_components(genomes, config, w, h) -> dict:
     players_list = []
     genomes_list = []
     models_list = []
-
+    #  Set seed for reproducibility
+    random.seed(42)
     for _, genome in genomes:  # Replace 10 with the desired number of players
         random_x = random.randint(GAME_BORDER, w - GAME_BORDER)
         random_y = random.randint(GAME_BORDER, h - GAME_BORDER)
@@ -115,7 +116,7 @@ def get_neat_components(genomes, config, w, h) -> dict:
             Player(
                 random_x,
                 random_y,
-                f"Player {len(players_list)+1}",
+                len(players_list)+1,
             )
         )
 
@@ -144,7 +145,7 @@ def get_food(n: int, players: list, w, h) -> list:
         list: A list of n food items.
     """
     food_list = []
-    occupied_positions = set([(player.x, player.y) for player in players])
+    occupied_positions = set([(player.position.x, player.position.y) for player in players])
 
     for number in range(n):
         while True:
@@ -153,12 +154,12 @@ def get_food(n: int, players: list, w, h) -> list:
             valid_position = True
 
             for player in players:
-                if math.sqrt((x - player.x) ** 2 + (y - player.y) ** 2) <= player.radius + 20:
+                if math.sqrt((x - player.position.x) ** 2 + (y - player.position.y) ** 2) <= player.radius + 20:
                     valid_position = False
                     break
 
             if valid_position:
-                food_list.append(Food(x, y, f"Food {number}"))
+                food_list.append(Food(Vector2(x, y), number))
                 occupied_positions.add((x, y))
                 break
 

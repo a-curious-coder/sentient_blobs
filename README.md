@@ -2,7 +2,8 @@
 
 Sentient Blobs is an agar.io game clone where players are neat ai agents that control blobs that interact with their environment. The goal is for the blobs to eat as much food and players as they can. 
 
-![Placeholder Image](https://placehold.co/1000x400?font=roboto)
+<!-- ![Placeholder Image](https://placehold.co/1000x400?font=roboto) -->
+![Placeholder Image](https://c.tenor.com/0gKp5z1EVIwAAAAC/tenor.gif)
 
 
 ## Setup

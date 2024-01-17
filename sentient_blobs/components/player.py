@@ -5,16 +5,20 @@ import time
 import numpy as np
 import pygame
 import settings
-from ai_utilities import adjust_output_with_noise, conflicting_moves, get_random_colour
-from components.game_circle import Circle
+from ai_utilities import (
+    adjust_output_with_noise,
+    conflicting_moves,
+    get_distance,
+    get_random_colour,
+)
+from components.particle import Particle
 
-
-class Player(Circle):
-    
-    def __init__(self, x, y, name):
-        colour = get_random_colour()
-        super().__init__(x, y, settings.player["base_radius"], colour, settings.player["base_radius"])
-        self.name = name
+pygame.init()
+class Player(Particle):
+    font = pygame.font.SysFont(None, 15)
+    def __init__(self, position, id):
+        super().__init__(id, position, settings.player["base_radius"])
+        self.name = f"Player_{id}"
         self.score = 0
         self.base_radius = settings.player["base_radius"]
         self.speed = settings.player["base_speed"]
@@ -35,36 +39,66 @@ class Player(Circle):
         self.last_move_time = time.time()
         self.in_motion = False
         self.colliding = False
+        self.visited = 0
+        self.show_name = False
+        self.highlighted = False
+        self.highlightColor = None
 
-    def draw(self, win):
-        # Draw the player with border
-        border_color = (255,0,255, 50) if self.colliding else (255, 255, 255, 50)
-        pygame.draw.circle(win, border_color, (self.x, self.y), self.radius + 2)
-        pygame.draw.circle(win, self.colour, (self.x, self.y), self.radius)
+    def draw(self, screen):
+        _radius = self.radius
 
+        surface = pygame.Surface((_radius*2, _radius*2), pygame.SRCALPHA, 32)
+        ir, ig, ib = self.colour
+        pygame.draw.circle(surface, (ir, ig, ib, 80), (int(_radius), int(_radius)), _radius)
+        if self.highlighted:
+            r, g, b = self.highlightColor
+            pygame.draw.circle(surface, (255, 255, 0, 255), (int(_radius), int(_radius)), _radius, 2)
+        else:
+            pygame.draw.circle(surface, (ir, ig, ib, 255), (int(_radius), int(_radius)), _radius, 2)
+        # pygame.draw.circle(screen, (0, 255, 0), self.position, 3)
+
+        screen.blit(surface, ( int(self.position.x) - _radius, int(self.position.y) - _radius))
+        # pygame.draw.circle(screen, self.color, self.position, self.radius)
+        self.highlighted = False
+        # Draw id
+        if self.show_name:
+            text = self.font.render(str(self.id), 1, (255, 255, 255))
+            screen.blit(text, (self.position.x - text.get_width() / 2, self.position.y - text.get_height() / 2))
 
     def move(self, keys, width, height):
         self.distance_travelled += self.speed
 
         if keys[pygame.K_LEFT]:
-            self.x = max(self.x - self.speed, self.radius)
+            self.position.x = max(self.position.x - self.speed, self.radius)
 
         if keys[pygame.K_RIGHT]:
-            self.x = min(self.x + self.speed, width - self.radius)
+            self.position.x = min(self.position.x + self.speed, width - self.radius)
 
         if keys[pygame.K_UP]:
-            self.y = max(self.y - self.speed, self.radius)
+            self.position.y = max(self.position.y - self.speed, self.radius)
 
         if keys[pygame.K_DOWN]:
-            self.y = min(self.y + self.speed, height - self.radius)
+            self.position.y = min(self.position.y + self.speed, height - self.radius)
 
-    def collides_with(self, other: Circle):
-        dx = self.x - other.x
-        dy = self.y - other.y
-        distance = math.sqrt(dx * dx + dy * dy)
-        threshold = self.radius + (self.radius * 0.1) + other.radius
+    def move_randomly(self, screen):
+        """ Moves the player randomly at speed within the bounds of the screen """
+        keys = {
+            pygame.K_LEFT: random.choice([True, False]),
+            pygame.K_RIGHT: random.choice([True, False]),
+            pygame.K_UP: random.choice([True, False]),
+            pygame.K_DOWN: random.choice([True, False]),
+        }
+        self.move(keys, screen.get_width(), screen.get_height())
+
+    def collides_with(self, other: Particle) -> bool:
+        x1, y1, r1 = self.position.x, self.position.y, self.radius
+        x2, y2, r2 = other.position.x, other.position.y, other.radius
+         # Calculate the distance between the centers of the two circles using the distance formula.
+        distance = math.hypot(x1 - x2, y1 - y2)
+        threshold = r1 + r2
+        # If the distance is less than the sum of the two radii, the circles are colliding.
         return distance <= threshold
-    
+        
     def process_player_movement(self, output, w, h):
         keys = {
             pygame.K_LEFT: False,
@@ -116,5 +150,12 @@ class Player(Circle):
         self.radius = self.base_radius + (self.score)
         self.peak_score = max(self.score, self.peak_score)
 
+    def highlight(self, colour=(0, 255, 0)):
+        self.highlighted = True
+        self.highlightColor = colour
+
     def punish(self):
         self.score -= (self.score * settings.player['score_reduction']) if self.score > 1 else 0
+
+    def __eq__(self, other):
+        return self.name == other.name

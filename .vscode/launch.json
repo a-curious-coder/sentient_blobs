@@ -1,14 +1,42 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Train",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/sentient_blobs/main.py",
+            "program": "${workspaceFolder}/sentient_blobs/neat-ai.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/sentient_blobs"
+        },
+        {
+            "name": "Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/sentient_blobs/quadtree_test.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/sentient_blobs",
+            "args": [
+                "--test"
+            ]
+        }
+        // Run unittest for test_quadtree
+        {
+            "name": "Python: Unittest",
+            "type": "python",
+            "request": "launch",
+            "module": "unittest",
+            "args": [
+                "-v",
+                "test_quadtree"
+            ],
+            "cwd": "${workspaceFolder}/sentient_blobs",
+            "env": {},
+            "envFile": "${workspaceFolder}/.venv",
+            "console": "integratedTerminal"
         }
     ]
 }

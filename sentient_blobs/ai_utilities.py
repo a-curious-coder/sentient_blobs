@@ -1,4 +1,5 @@
 import random
+from math import sqrt
 
 import numpy as np
 import pygame
@@ -30,3 +31,6 @@ def get_random_colour():
 def conflicting_moves(keys) -> bool:
     return (keys[pygame.K_LEFT] and keys[pygame.K_RIGHT]) or \
         (keys[pygame.K_DOWN] and keys[pygame.K_UP])
+
+def get_distance(x1, y1, x2, y2):
+    return sqrt( (x2 - x1) * (x2-x1) + (y2 - y1) * (y2 - y1) )

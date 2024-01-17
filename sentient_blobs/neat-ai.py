@@ -1,7 +1,9 @@
 import asyncio
+import cProfile
 import math
 import pickle
 import random
+import re
 import sys
 import time
 from math import floor, sqrt
@@ -21,6 +23,8 @@ from getters import *
 # Import clock
 from pygame import time as pytime
 
+cProfile.run('re.compile("foo|bar")')
+
 pygame.init()
 
 infoObject = pygame.display.Info()
@@ -38,22 +42,19 @@ SCORE_LIMIT = 200  # the maximum score of the game before we break the loop
 
 # Game settings
 MAX_SCORE = 0  # The highest score achieved by a player
-ROUND_TIME = 30
-FRAME_LIMIT = 600
+CALCULATIONS = 0
 
 # NEAT settings
-MAX_GEN = settings.neat["max_gen"]
 GENERATION = 0
+MAX_GEN = settings.neat["max_gen"]
 FOOD_DETECTION = settings.player["food_detection"]
 PLAYER_DETECTION = settings.player["player_detection"]
 SCORE_REDUCTION = settings.player["score_reduction"]
 
 # Can only eat other players if this player is at least this much bigger
-EAT_PLAYER_THRESHOLD =settings.player["eat_player_threshold"]
-CALCULATIONS = 0
-
-# Global settings
+EAT_PLAYER_THRESHOLD = settings.player["eat_player_threshold"]
 CONFLICTING_MOVES_PENALTY = 0.0015
+
 
 def calculate_remaining_fitness(player_list: list, genomes_list):
     for player_index, player in enumerate(player_list):
@@ -84,19 +85,6 @@ def calculate_player_fitness(player: Player) -> int:
     return int(fitness_score)
 
 
-def process_player_collision(players_list, player):
-    colliding_players = []
-    CALCULATIONS = 0
-    for other_player in players_list:
-        if player != other_player:
-            CALCULATIONS += 1
-            if check_collision(player, other_player):
-                colliding_players.append(other_player)
-
-    for colliding_player in colliding_players:
-        player_eaten_player(player, colliding_player)
-
-
 def check_for_game_events(players):
     """Check for game events such as quitting or clicking on a player
     Arguments:
@@ -115,8 +103,6 @@ def check_for_game_events(players):
         event_type = event.type
         if event_type in event_actions:
             event_actions[event_type](event, players)
-
-    return players
 
 
 def end_generation(genomes_list, players_list, models_list):
@@ -176,7 +162,7 @@ def ensure_food(food_list, players_list):
         food_list.extend(get_food(food_needed, players_list, SCREEN_WIDTH, SCREEN_HEIGHT))
 
 
-def draw_game(players_list, food_list, quadtree):
+def draw_game(players_list: list[Player], food_list: list[Food], quadtree: QuadTree):
     """Draw the game screen
     Arguments:
         players {list} -- A list of players
@@ -290,7 +276,6 @@ def evaluate_genomes(genomes, config):
     GENERATION += 1  # update the generation
 
     # Calculate game's end time from now
-    end_round_time = ROUND_TIME + time.time()
     CLOCK = pygame.time.Clock()  # Create a clock object
     start_time = (
         pygame.time.get_ticks()
@@ -305,14 +290,16 @@ def evaluate_genomes(genomes, config):
     food_list = get_food(NUM_FOOD, players_list, SCREEN_WIDTH, SCREEN_HEIGHT)
     boundary = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
     game_running = True
-    CALCULATIONS = 0
     CURRENT_FRAME = 0
+
     # ! GAME LOOP
     while game_running:
-        quadtree = QuadTree(boundary, 4)
-        for element in players_list + food_list:
-            quadtree.insert(element)
         CURRENT_FRAME += 1
+        GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
+        CLOCK.tick(FPS)
+        COLLISIONS = 0
+        CALCULATIONS = 0
+        check_for_game_events(players_list)
 
         # ! Check if the game is finished
         if game_finished(players_list):
@@ -320,45 +307,45 @@ def evaluate_genomes(genomes, config):
             game_running = False
             continue
 
-        players_list = check_for_game_events(players_list)
+        quadtree = QuadTree(boundary, 4)
+        for element in players_list + food_list:
+            quadtree.insert(element.get_quadtree_data())
 
-        GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
-
-        CLOCK.tick(FPS)
-
-        COLLISIONS = 0
-        CALCULATIONS = 0
         # Check for collisions
         for player_index in reversed(range(len(players_list))):
             player = players_list[player_index]
             player.colliding = False
             if player.failed:
                 delete_player(player_index, players_list, genomes_list, models_list)
+                quadtree.remove(player.get_quadtree_data())
+                deleted += 1
                 continue
-            player_area = pygame.Rect(player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2)
-            collided_circles = quadtree.query(player_area)
-            # draw the range
-            pygame.draw.rect(WIN, (255, 255, 255), player_area, 1)
+            # ! Calculate the area around the player
+            player.area = pygame.Rect(player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2)
+            # Check for collisions with other game elements
+            intersecting_game_objects = quadtree.query(player.area)
 
-            for circle in collided_circles:
-                if player != circle:
+            for intersecting_game_object in intersecting_game_objects:
+                name = intersecting_game_object[0]
+                if player.name != name:
                     CALCULATIONS += 1
-                    if player.collides_with(circle):
+                    if player.collides_with(intersecting_game_object):
                         COLLISIONS += 1
                         player.colliding = True
-
-                        if isinstance(circle, Player):
-                            player_eaten_player(player, circle)
-                        elif isinstance(circle, Food):
-                            player.add_to_score(circle.value)
+                        if name.startswith("Player"):
+                            intersecting_player_name = name
+                            # ! Gets the player object from the players list that has the same name
+                            colliding_player = [this_player for this_player in players_list if this_player.name == intersecting_player_name][0]
+                            eaten_colliding_player = player_eaten_player(player, colliding_player)
+                        elif name.startswith("Food"):
+                            food = next((obj for obj in food_list if obj.name == name), None)
+                            player.add_to_score(food.value)
                             player.food_eaten += 1
                             player.last_eaten_time = time.time()
-                            food_list.remove(circle)
+                            food_list.remove(food)
+                            quadtree.remove(food.get_quadtree_data())
             # ! Player punishments
-            starve_value = int(player.score * SCORE_REDUCTION)
-            
-            # player.score = player.reduce_score(starve_value)
-            player.score -= starve_value
+            player.score -= int(player.score * SCORE_REDUCTION)
 
             # ! Gather inputs for player's genome
             inputs = get_inputs(player, players_list, food_list)
@@ -370,52 +357,7 @@ def evaluate_genomes(genomes, config):
             
             if player.failed:
                 delete_player(player_index, players_list, genomes_list, models_list)
-
-        
-
-        # Update player positions and check for collisions
-        # for player_index in reversed(range(len(players_list))):
-            
-        #     player = players_list[player_index]
-
-        #     if player.failed:
-        #         delete_player(player_index, players_list, genomes_list, models_list)
-        #         continue
-
-        #     process_player_collision(players_list, player)
-
-        #     # ! Player punishments
-        #     starve_value = int(player.score * SCORE_REDUCTION)
-            
-        #     # player.score = player.reduce_score(starve_value)
-        #     player.score -= starve_value
-
-        #     # ! Gather inputs for player's genome
-        #     inputs = get_inputs(player, players_list, food_list)
-
-        #     # ! Get the output from the neural network
-        #     output = models_list[player_index].activate(inputs)
-
-        #     player.process_player_movement(output, SCREEN_WIDTH, SCREEN_HEIGHT)
-            
-        #     if player.failed:
-        #         delete_player(player_index, players_list, genomes_list, models_list)
-            
-        #     player.peak_score = max(player.score, player.peak_score)
-
-
-        # # ! Update food positions and check for collisions
-        # for food_item in food_list[:]:
-        #     for player in players_list:
-        #         CALCULATIONS += 1
-        #         if check_collision(food_item, player):
-        #             # player.add_to_score(food_item.value)
-        #             player.score += 1
-        #             player.food_eaten += 1
-        #             player.last_eaten_time = time.time()
-        #             food_list.remove(food_item)
-        #             break
-
+                quadtree.remove(player.get_quadtree_data())
         # ! Ensure there are always correct number of food items on the screen
         ensure_food(food_list, players_list)
         draw_game(players_list, food_list, quadtree)
