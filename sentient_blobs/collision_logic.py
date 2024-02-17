@@ -32,7 +32,7 @@ def player_eaten_player(player: Player, colliding_player: Player) -> bool:
     # Is player 10% bigger than the colliding player
     if player.radius > colliding_player.radius * (1 + settings.player["eat_player_threshold"]):
         # If the player's score is 0, then check if the player's radius is equal to radius
-        player.add_to_score(colliding_player.value * settings.player["score_consumption"])
+        player.add_to_score(colliding_player.score * settings.player["score_consumption"])
         player.players_eaten += 1
         player.last_eaten_time = time.time()
         

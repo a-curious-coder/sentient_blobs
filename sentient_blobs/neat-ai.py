@@ -19,19 +19,19 @@ from components.utilities.quadtree import QuadTree
 from drawer import draw_stats
 from game_event_handler import handle_keydown, handle_mousebuttondown, quit_game
 from getters import *
-
+from components.utilities.boundary_shape import Rectangle
 # Import clock
 from pygame import time as pytime
 
 cProfile.run('re.compile("foo|bar")')
 
 pygame.init()
-
+PAUSED = False
 infoObject = pygame.display.Info()
 w = infoObject.current_w
 h = infoObject.current_h
-SCREEN_WIDTH = w
-SCREEN_HEIGHT = h
+SCREEN_WIDTH = w // 2
+SCREEN_HEIGHT = h // 2
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 GAME_PADDING = settings.game["padding"]
@@ -62,6 +62,22 @@ def calculate_remaining_fitness(player_list: list, genomes_list):
     print("Round complete")
 
 
+def paused():
+    # Display a "Paused" message
+    largeText = pygame.font.SysFont("comicsansms",  115)
+    TextSurf, TextRect = text_objects("Paused", largeText)
+    TextRect.center = ((SCREEN_WIDTH/2), (SCREEN_HEIGHT/2))
+    WIN.blit(TextSurf, TextRect)
+    
+    while True:  # Keep looping until the game is unpaused
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            # Additional event handling for unpausing
+        pygame.display.update()
+        clock.tick(15)
+        
 def calculate_player_fitness(player: Player) -> int:
     # Weights for each component
     weights = {
@@ -103,7 +119,13 @@ def check_for_game_events(players):
         event_type = event.type
         if event_type in event_actions:
             event_actions[event_type](event, players)
+        if event_type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                pause_game()
 
+def pause_game():
+    global PAUSED
+    PAUSED = not PAUSED
 
 def end_generation(genomes_list, players_list, models_list):
     for i, player in enumerate(players_list):
@@ -218,8 +240,8 @@ def draw_game(players_list: list[Player], food_list: list[Food], quadtree: QuadT
 
     if selected_player:
         # Draw lines to the 10 nearest foods to the selected player
-        player_x = selected_player.x
-        player_y = selected_player.y
+        player_x = selected_player.position.x
+        player_y = selected_player.position.y
         food_distances = calculate_and_sort_player_distances(selected_player, food_list)
         nearest_food = list(food_distances.items())[:FOOD_DETECTION]
         for food_name, _ in nearest_food:
@@ -229,7 +251,7 @@ def draw_game(players_list: list[Player], food_list: list[Food], quadtree: QuadT
                     WIN,
                     (0, 255, 0, 100),
                     (player_x, player_y),
-                    (food_obj.x, food_obj.y),
+                    (food_obj.position.x, food_obj.position.y),
                     2,
                 )
 
@@ -245,7 +267,7 @@ def draw_game(players_list: list[Player], food_list: list[Food], quadtree: QuadT
                     WIN,
                     (255, 0, 0, 100),
                     (player_x, player_y),
-                    (other_player.x, other_player.y),
+                    (other_player.position.x, other_player.position.y),
                     2,
                 )
         # Draw stats for the selected player
@@ -288,12 +310,16 @@ def evaluate_genomes(genomes, config):
     models_list = neat_components["models"]
 
     food_list = get_food(NUM_FOOD, players_list, SCREEN_WIDTH, SCREEN_HEIGHT)
-    boundary = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+    quadtree_area = Rectangle(Vector2(0, 0), Vector2(SCREEN_WIDTH, SCREEN_HEIGHT))
     game_running = True
     CURRENT_FRAME = 0
 
     # ! GAME LOOP
     while game_running:
+        if PAUSED:
+            print("Game paused")
+            continue
+        deleted = 0
         CURRENT_FRAME += 1
         GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
         CLOCK.tick(FPS)
@@ -307,9 +333,9 @@ def evaluate_genomes(genomes, config):
             game_running = False
             continue
 
-        quadtree = QuadTree(boundary, 4)
-        for element in players_list + food_list:
-            quadtree.insert(element.get_quadtree_data())
+        quadtree = QuadTree(quadtree_area, 4)
+        for particle in players_list + food_list:
+            quadtree.insert(particle)
 
         # Check for collisions
         for player_index in reversed(range(len(players_list))):
@@ -317,33 +343,36 @@ def evaluate_genomes(genomes, config):
             player.colliding = False
             if player.failed:
                 delete_player(player_index, players_list, genomes_list, models_list)
-                quadtree.remove(player.get_quadtree_data())
                 deleted += 1
                 continue
+            
             # ! Calculate the area around the player
-            player.area = pygame.Rect(player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2)
+            player.area = Rectangle(Vector2(player.position.x - player.radius, player.position.y - player.radius), 
+                                    Vector2(player.radius * 2, player.radius * 2))
             # Check for collisions with other game elements
-            intersecting_game_objects = quadtree.query(player.area)
+            others = quadtree.query(player.area)
 
-            for intersecting_game_object in intersecting_game_objects:
-                name = intersecting_game_object[0]
-                if player.name != name:
+            for other in others:
+                if player != other:
                     CALCULATIONS += 1
-                    if player.collides_with(intersecting_game_object):
+                    if player.collides_with(other):
                         COLLISIONS += 1
                         player.colliding = True
-                        if name.startswith("Player"):
-                            intersecting_player_name = name
+                        player.highlight()
+                        if other.name.startswith("Player"):
+                            # intersecting_player_name = other.name
                             # ! Gets the player object from the players list that has the same name
-                            colliding_player = [this_player for this_player in players_list if this_player.name == intersecting_player_name][0]
-                            eaten_colliding_player = player_eaten_player(player, colliding_player)
-                        elif name.startswith("Food"):
-                            food = next((obj for obj in food_list if obj.name == name), None)
+                            # colliding_player = [this_player for this_player in players_list if this_player.name == intersecting_player_name][0]
+                            eaten_colliding_player = player_eaten_player(player, other)
+                        elif other.name.startswith("Food"):
+                            food = next((obj for obj in food_list if obj.name == other.name), None)
                             player.add_to_score(food.value)
                             player.food_eaten += 1
                             player.last_eaten_time = time.time()
-                            food_list.remove(food)
-                            quadtree.remove(food.get_quadtree_data())
+                            # get index of food in food_list
+                            food_index = food_list.index(food)
+                            remove_element_from_lists(food_index, food_list)
+                            quadtree.remove(food)
             # ! Player punishments
             player.score -= int(player.score * SCORE_REDUCTION)
 
@@ -357,7 +386,7 @@ def evaluate_genomes(genomes, config):
             
             if player.failed:
                 delete_player(player_index, players_list, genomes_list, models_list)
-                quadtree.remove(player.get_quadtree_data())
+                quadtree.remove(player)
         # ! Ensure there are always correct number of food items on the screen
         ensure_food(food_list, players_list)
         draw_game(players_list, food_list, quadtree)

@@ -28,8 +28,8 @@ def handle_mousebuttondown(event, players):
 def find_clicked_player(mouse_x, mouse_y, players):
     for player in players:
         if (
-            player.x - player.radius <= mouse_x <= player.x + player.radius
-            and player.y - player.radius <= mouse_y <= player.y + player.radius
+            player.position.x - player.radius <= mouse_x <= player.position.x + player.radius
+            and player.position.y - player.radius <= mouse_y <= player.position.y + player.radius
         ):
             return player
     return None

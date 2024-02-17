@@ -27,8 +27,8 @@ pygame.display.set_caption("Sentient Blobs")
 w = infoObject.current_w
 h = infoObject.current_h
 
-SCREEN_WIDTH = 1920  # Increase the width to make the image sharper
-SCREEN_HEIGHT = 1080  # Increase the height to make the image sharper
+SCREEN_WIDTH = 1024  # Increase the width to make the image sharper
+SCREEN_HEIGHT = 1024  # Increase the height to make the image sharper
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 # WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.NOFRAME)
 SCORE_LIMIT = 200  # the maximum score of the game before we break the loop

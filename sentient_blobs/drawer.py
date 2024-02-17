@@ -8,7 +8,7 @@ def draw_stats(selected_player, WIN, SCREEN_WIDTH):
     score_text = font.render(f"Score: {selected_player.score:.0f}", True, (255, 255, 255))
     players_eaten_text = font.render(f"Players Eaten: {selected_player.players_eaten}", True, (255, 255, 255))
     food_eaten_text = font.render(f"Food Consumed: {selected_player.food_eaten}", True, (255, 255, 255))
-    location_text = font.render(f"Location: ({selected_player.x:.0f}, {selected_player.y:.0f})", True, (255, 255, 255))
+    location_text = font.render(f"Location: ({selected_player.position.x:.0f}, {selected_player.position.y:.0f})", True, (255, 255, 255))
     conflicting_moves_text = font.render(f"Conflicting Moves: {selected_player.conflicting_moves}", True, (255, 255, 255))
     in_motion_text = font.render(f"In Motion: {selected_player.in_motion}", True, (255, 255, 255))
     radius_text = font.render(f"Radius: {selected_player.radius}", True, (255, 255, 255))  # Add radius text

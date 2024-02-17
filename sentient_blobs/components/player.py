@@ -15,8 +15,20 @@ from components.particle import Particle
 
 pygame.init()
 class Player(Particle):
+    
     font = pygame.font.SysFont(None, 15)
+    
     def __init__(self, position, id):
+        """
+        Initialize a Player object.
+
+        Parameters:
+        - position (Position): The location of the player     
+        - id (int): The id of the player (used to identify the player in the game)
+        
+        Returns:
+        - None
+        """
         super().__init__(id, position, settings.player["base_radius"])
         self.name = f"Player_{id}"
         self.score = 0
@@ -56,7 +68,8 @@ class Player(Particle):
         else:
             pygame.draw.circle(surface, (ir, ig, ib, 255), (int(_radius), int(_radius)), _radius, 2)
         # pygame.draw.circle(screen, (0, 255, 0), self.position, 3)
-
+        # Draw rectangle around the player based on area
+        pygame.draw.rect(surface, (255, 255, 255, 255), (0, 0, _radius*2, _radius*2), 2)
         screen.blit(surface, ( int(self.position.x) - _radius, int(self.position.y) - _radius))
         # pygame.draw.circle(screen, self.color, self.position, self.radius)
         self.highlighted = False
@@ -146,7 +159,7 @@ class Player(Particle):
             self.in_motion = False
 
     def add_to_score(self, value):
-        self.score += value
+        self.score += value if value >= 1 else 1
         self.radius = self.base_radius + (self.score)
         self.peak_score = max(self.score, self.peak_score)
 

@@ -104,7 +104,7 @@ def get_neat_components(genomes, config, w, h) -> dict:
         # Check if the random position is within the radius of any other player
         while any(
             [
-                math.sqrt((random_x - player.x) ** 2 + (random_y - player.y) ** 2)
+                math.sqrt((random_x - player.position.x) ** 2 + (random_y - player.position.y) ** 2)
                 <= player.radius
                 for player in players_list
             ]
@@ -114,8 +114,8 @@ def get_neat_components(genomes, config, w, h) -> dict:
 
         players_list.append(
             Player(
-                random_x,
-                random_y,
+                Vector2(random_x,
+                random_y),
                 len(players_list)+1,
             )
         )
