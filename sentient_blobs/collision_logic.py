@@ -2,13 +2,15 @@
 import math
 import time
 
-import settings
-from components.player import Player
+import sentient_blobs.settings as settings
+from sentient_blobs.components.player import Player
 
 
 def check_collision(obj1, obj2) -> bool:
     """Check if two objects are colliding
     NOTE: For food and players use only... for now
+    If obj1 is larger than obj2, then obj1 eats obj2; thus colliding
+
     Arguments:
         obj1 {object} -- First object
         obj2 {object} -- Second object
@@ -16,7 +18,7 @@ def check_collision(obj1, obj2) -> bool:
     dx = obj1.position.x - obj2.position.x
     dy = obj1.position.y - obj2.position.y
     distance = math.sqrt(dx * dx + dy * dy)
-    threshold = obj1.radius + (obj1.radius * 0.1) + obj2.radius
+    threshold = obj1.radius + obj2.radius
     return distance <= threshold
 
 

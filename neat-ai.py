@@ -11,17 +11,23 @@ from math import floor, sqrt
 import neat
 import numpy as np
 import pygame
-import settings
-from collision_logic import check_collision, player_eaten_player
-from components.food import Food
-from components.player import Player
-from components.utilities.quadtree import QuadTree
-from drawer import draw_stats
-from game_event_handler import handle_keydown, handle_mousebuttondown, quit_game
-from getters import *
-from components.utilities.boundary_shape import Rectangle
+
 # Import clock
 from pygame import time as pytime
+
+import sentient_blobs.settings
+from sentient_blobs.collision_logic import check_collision, player_eaten_player
+from sentient_blobs.components.food import Food
+from sentient_blobs.components.player import Player
+from sentient_blobs.drawer import draw_stats
+from sentient_blobs.game_event_handler import (
+    handle_keydown,
+    handle_mousebuttondown,
+    quit_game,
+)
+from sentient_blobs.getters import *
+from sentient_blobs.utilities.boundary_shape import Rectangle
+from sentient_blobs.utilities.quadtree import QuadTree
 
 cProfile.run('re.compile("foo|bar")')
 
@@ -55,6 +61,11 @@ SCORE_REDUCTION = settings.player["score_reduction"]
 EAT_PLAYER_THRESHOLD = settings.player["eat_player_threshold"]
 CONFLICTING_MOVES_PENALTY = 0.0015
 
+# Initialize the font module
+pygame.font.init()
+
+# Render the scores as text
+font = pygame.font.SysFont(None, 30)  # Adjust the size as needed
 
 def calculate_remaining_fitness(player_list: list, genomes_list):
     for player_index, player in enumerate(player_list):
@@ -111,7 +122,6 @@ def check_for_game_events(players):
     """
     event_actions = {
         pygame.QUIT: quit_game,
-        pygame.KEYDOWN: handle_keydown,
         pygame.MOUSEBUTTONDOWN: handle_mousebuttondown
     }
 
@@ -184,22 +194,120 @@ def ensure_food(food_list, players_list):
         food_list.extend(get_food(food_needed, players_list, SCREEN_WIDTH, SCREEN_HEIGHT))
 
 
-def draw_game(players_list: list[Player], food_list: list[Food], quadtree: QuadTree):
+# def draw_game(players_list: list[Player], food_list: list[Food], quadtree: QuadTree):
+#     """Draw the game screen
+#     Arguments:
+#         players {list} -- A list of players
+#         food_list {list} -- A list of food items
+#     """
+#     # Background
+#     WIN.fill((0, 0, 0))
+#     quadtree.draw(WIN)
+#     # Get highest score
+#     MAX_SCORE = max(player.score for player in players_list)
+
+#     for player in players_list:
+#         # Set colour between red and green based on score (0, max_score)
+#         # 0 = red, max_score = green
+#         # 0 = 255, max_score = 0
+#         colour = (255, 0, 0)
+#         if MAX_SCORE > 0:
+#             colour = (
+#                 255 - int(player.score / MAX_SCORE * 255),
+#                 int(player.score / MAX_SCORE * 255),
+#                 0,
+#             )
+#         player.colour = colour
+#         player.draw(WIN)
+
+#     for food in food_list:
+#         food.draw(WIN)
+
+#     # Initialize the font module
+#     pygame.font.init()
+
+#     # Render the scores as text
+#     font = pygame.font.SysFont(None, 30)  # Adjust the size as needed
+#     score_text = font.render(
+#         f"Highest Score: {MAX_SCORE:.0f}", True, (255, 255, 255)
+#     )  # White text
+#     num_players_text = font.render(
+#         f"Players Remaining: {len(players_list)}", True, (255, 255, 255)
+#     )  # White text
+#     generation_text = font.render(f"Generation: {GENERATION}", True, (255, 255, 255))
+#     minutes, seconds = divmod(GAME_TIME, 60)
+#     timer_text = font.render(
+#         f"Time: {int(minutes)}:{int(seconds):02d}", True, (255, 255, 255)
+#     )
+#     WIN.blit(timer_text, (10, 100))  # Position as needed
+#     # Draw the scores onto the screen
+#     WIN.blit(score_text, (10, 10))  # Position as needed
+#     WIN.blit(num_players_text, (10, 40))  # Position as needed
+#     WIN.blit(generation_text, (10, 70))
+
+#     # Find the selected player
+#     selected_player = next((player for player in players_list if player.selected), None)
+
+#     if selected_player:
+#         # Draw lines to the 10 nearest foods to the selected player
+#         player_x = selected_player.position.x
+#         player_y = selected_player.position.y
+#         food_distances = calculate_and_sort_player_distances(selected_player, food_list)
+#         nearest_food = list(food_distances.items())[:FOOD_DETECTION]
+#         for food_name, _ in nearest_food:
+#             food_obj = next((obj for obj in food_list if obj.name == food_name), None)
+#             if food_obj:
+#                 pygame.draw.aaline(
+#                     WIN,
+#                     (255, 255, 0, 100),
+#                     (player_x, player_y),
+#                     (food_obj.position.x, food_obj.position.y),
+#                     2,
+#                 )
+
+#         # Draw lines to the 10 nearest players to the selected player
+#         player_distances = calculate_and_sort_player_distances(selected_player, players_list)
+#         nearest_players = list(player_distances.items())[:PLAYER_DETECTION]
+#         for player_name, _ in nearest_players:
+#             other_player = next(
+#                 (obj for obj in players_list if obj.name == player_name), None
+#             )
+#             if other_player:
+#                 pygame.draw.aaline(
+#                     WIN,
+#                     (255, 0, 0, 100),
+#                     (player_x, player_y),
+#                     (other_player.position.x, other_player.position.y),
+#                     2,
+#                 )
+#         # Draw stats for the selected player
+#         draw_stats(selected_player, WIN, SCREEN_WIDTH)
+    
+#     # # Draw num of collisions
+#     font = pygame.font.SysFont("Arial", 18)
+#     text = font.render(f"Collisions: {COLLISIONS}", True, (255, 255, 255))
+#     WIN.blit(text, (SCREEN_WIDTH *0.9, 10))
+#     # Draw fps
+#     fps = font.render(f"FPS: {int(CLOCK.get_fps())}", True, (255, 255, 255))
+#     WIN.blit(fps, (SCREEN_WIDTH *0.9, 40))
+#     # Draw calculations
+#     calculations_text = font.render(f"Calculations: {CALCULATIONS}", True, (255, 255, 255))
+#     WIN.blit(calculations_text, (SCREEN_WIDTH *0.9, 70))
+#     pygame.display.flip()
+
+def draw_game(players_list, food_list, quadtree):
     """Draw the game screen
     Arguments:
         players {list} -- A list of players
         food_list {list} -- A list of food items
     """
     # Background
-    WIN.fill((0, 0, 0))
+    WIN.fill((0, 50, 0))
     quadtree.draw(WIN)
     # Get highest score
     MAX_SCORE = max(player.score for player in players_list)
 
     for player in players_list:
-        # Set colour between red and green based on score (0, max_score)
-        # 0 = red, max_score = green
-        # 0 = 255, max_score = 0
         colour = (255, 0, 0)
         if MAX_SCORE > 0:
             colour = (
@@ -213,77 +321,61 @@ def draw_game(players_list: list[Player], food_list: list[Food], quadtree: QuadT
     for food in food_list:
         food.draw(WIN)
 
-    # Initialize the font module
-    pygame.font.init()
-
-    # Render the scores as text
-    font = pygame.font.SysFont(None, 30)  # Adjust the size as needed
+    fps = font.render(f"FPS: {int(CLOCK.get_fps())}", True, (255, 255, 255))
     score_text = font.render(
         f"Highest Score: {MAX_SCORE:.0f}", True, (255, 255, 255)
     )  # White text
     num_players_text = font.render(
         f"Players Remaining: {len(players_list)}", True, (255, 255, 255)
     )  # White text
-    generation_text = font.render(f"Generation: {GENERATION}", True, (255, 255, 255))
     minutes, seconds = divmod(GAME_TIME, 60)
     timer_text = font.render(
         f"Time: {int(minutes)}:{int(seconds):02d}", True, (255, 255, 255)
     )
-    WIN.blit(timer_text, (10, 100))  # Position as needed
+    WIN.blit(timer_text, (10, 10))  # Position as needed
+    WIN.blit(fps, (10, 40))  # Position as needed
     # Draw the scores onto the screen
-    WIN.blit(score_text, (10, 10))  # Position as needed
-    WIN.blit(num_players_text, (10, 40))  # Position as needed
-    WIN.blit(generation_text, (10, 70))
+    WIN.blit(score_text, (10, 70))  # Position as needed
+    WIN.blit(num_players_text, (10, 100))  # Position as needed
 
     # Find the selected player
     selected_player = next((player for player in players_list if player.selected), None)
 
     if selected_player:
-        # Draw lines to the 10 nearest foods to the selected player
-        player_x = selected_player.position.x
-        player_y = selected_player.position.y
-        food_distances = calculate_and_sort_player_distances(selected_player, food_list)
-        nearest_food = list(food_distances.items())[:FOOD_DETECTION]
-        for food_name, _ in nearest_food:
-            food_obj = next((obj for obj in food_list if obj.name == food_name), None)
-            if food_obj:
-                pygame.draw.aaline(
-                    WIN,
-                    (0, 255, 0, 100),
-                    (player_x, player_y),
-                    (food_obj.position.x, food_obj.position.y),
-                    2,
-                )
+        nearest_food_obj = quadtree.query(selected_player.vision_boundary, object_type="Food")
+        nearest_player_obj = quadtree.query(selected_player.vision_boundary, "Player")
+        selected_player.vision_boundary.draw(WIN)
 
-        # Draw lines to the 10 nearest players to the selected player
-        player_distances = calculate_and_sort_player_distances(selected_player, players_list)
-        nearest_players = list(player_distances.items())[:PLAYER_DETECTION]
-        for player_name, _ in nearest_players:
-            other_player = next(
-                (obj for obj in players_list if obj.name == player_name), None
+        for food_obj in nearest_food_obj:
+            pygame.draw.aaline(
+                surface=WIN,
+                color=(255, 255, 0, 100),
+                start_pos=(selected_player.position.x, selected_player.position.y),
+                end_pos=(food_obj.position.x, food_obj.position.y)
             )
-            if other_player:
-                pygame.draw.aaline(
-                    WIN,
-                    (255, 0, 0, 100),
-                    (player_x, player_y),
-                    (other_player.position.x, other_player.position.y),
-                    2,
-                )
+
+        for player_obj in nearest_player_obj:
+            pygame.draw.aaline(
+                surface=WIN,
+                color=(255, 0, 0, 100),
+                start_pos=(selected_player.position.x, selected_player.position.y),
+                end_pos=(player_obj.position.x, player_obj.position.y)
+            )
+
         # Draw stats for the selected player
         draw_stats(selected_player, WIN, SCREEN_WIDTH)
-    
-    # # Draw num of collisions
-    font = pygame.font.SysFont("Arial", 18)
-    text = font.render(f"Collisions: {COLLISIONS}", True, (255, 255, 255))
-    WIN.blit(text, (SCREEN_WIDTH *0.9, 10))
-    # Draw fps
-    fps = font.render(f"FPS: {int(CLOCK.get_fps())}", True, (255, 255, 255))
-    WIN.blit(fps, (SCREEN_WIDTH *0.9, 40))
-    # Draw calculations
-    calculations_text = font.render(f"Calculations: {CALCULATIONS}", True, (255, 255, 255))
-    WIN.blit(calculations_text, (SCREEN_WIDTH *0.9, 70))
+
     pygame.display.flip()
+
+
+def process_player_collision(players_list, player):
+    colliding_players = [
+                    other_player
+                    for other_player in players_list
+                    if player != other_player and check_collision(player, other_player)
+                ]
+    for colliding_player in colliding_players:
+        player_eaten_player(player, colliding_player)
 
 
 def evaluate_genomes(genomes, config):
@@ -316,8 +408,8 @@ def evaluate_genomes(genomes, config):
 
     # ! GAME LOOP
     while game_running:
+        check_for_game_events(players_list)
         if PAUSED:
-            print("Game paused")
             continue
         deleted = 0
         CURRENT_FRAME += 1
@@ -325,7 +417,6 @@ def evaluate_genomes(genomes, config):
         CLOCK.tick(FPS)
         COLLISIONS = 0
         CALCULATIONS = 0
-        check_for_game_events(players_list)
 
         # ! Check if the game is finished
         if game_finished(players_list):
@@ -347,37 +438,26 @@ def evaluate_genomes(genomes, config):
                 continue
             
             # ! Calculate the area around the player
-            player.area = Rectangle(Vector2(player.position.x - player.radius, player.position.y - player.radius), 
-                                    Vector2(player.radius * 2, player.radius * 2))
-            # Check for collisions with other game elements
-            others = quadtree.query(player.area)
+            nearby_players = quadtree.query(player.vision_boundary)
+            player.vision_boundary.draw(WIN)
 
-            for other in others:
-                if player != other:
-                    CALCULATIONS += 1
-                    if player.collides_with(other):
-                        COLLISIONS += 1
-                        player.colliding = True
-                        player.highlight()
-                        if other.name.startswith("Player"):
-                            # intersecting_player_name = other.name
-                            # ! Gets the player object from the players list that has the same name
-                            # colliding_player = [this_player for this_player in players_list if this_player.name == intersecting_player_name][0]
-                            eaten_colliding_player = player_eaten_player(player, other)
-                        elif other.name.startswith("Food"):
-                            food = next((obj for obj in food_list if obj.name == other.name), None)
-                            player.add_to_score(food.value)
-                            player.food_eaten += 1
-                            player.last_eaten_time = time.time()
-                            # get index of food in food_list
-                            food_index = food_list.index(food)
-                            remove_element_from_lists(food_index, food_list)
-                            quadtree.remove(food)
+            process_player_collision(nearby_players, player)
+
+            nearby_food = quadtree.query(player.vision_boundary, "Food")
+
+            for f in nearby_food:
+                if check_collision(f, player):
+                    player.add_to_score(f.value)
+                    player.food_eaten += 1
+                    player.last_eaten_time = time.time()
+                    food_list.remove(f)
+                    quadtree.remove(f)
+
             # ! Player punishments
             player.score -= int(player.score * SCORE_REDUCTION)
 
             # ! Gather inputs for player's genome
-            inputs = get_inputs(player, players_list, food_list)
+            inputs = get_inputs(player, nearby_players, nearby_food)
 
             # ! Get the output from the neural network
             output = models_list[player_index].activate(inputs)

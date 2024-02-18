@@ -4,10 +4,11 @@ import random
 
 import neat
 import pygame
-import settings
-from components.food import Food
-from components.player import Player
 from pygame.math import Vector2
+
+import sentient_blobs.settings as settings
+from sentient_blobs.components.food import Food
+from sentient_blobs.components.player import Player
 
 GAME_BORDER = settings.game["padding"]
 FOOD_DETECTION = settings.player["food_detection"]
@@ -39,6 +40,7 @@ def get_inputs(player, players_list, food_list):
 
 def calculate_and_sort_player_distances(player, players):
     distances = {}
+    count = 0
     for other_player in players:
         if other_player != player:
             dx = other_player.position.x - player.position.x
@@ -49,13 +51,16 @@ def calculate_and_sort_player_distances(player, players):
             distance = max(distance - 2 * min(player.radius, other_player.radius), 0)
             
             distances[other_player.name] = distance
+        count += 1
 
     # Sort the dictionary by values (distances)
     sorted_distances = dict(sorted(distances.items(), key=lambda item: item[1]))
 
     # If there aren't 10 players, fill the remaining slots with 9999
     while len(sorted_distances) < 10:
-        sorted_distances[f"Player_{len(sorted_distances)+1}"] = 9999
+        placeholder_name = f"PlaceholderPlayer{len(sorted_distances) +  1}"
+        sorted_distances[placeholder_name] = 9999
+        count += 1
 
     # Get the nearest 10 players
     return dict(sorted(sorted_distances.items(), key=lambda item: item[1])[:10])
@@ -68,15 +73,18 @@ def get_nearest_players_sizes(player, players):
     # Create a dictionary to store the sizes of the nearest players
     sizes = {}
 
+    count = 0
     # Iterate through the nearest players
     for other_player in players:
         # Check if the other player is in the list of nearest players
         if other_player.name in nearest_players:
             # Add the player's size (radius) to the dictionary
             sizes[other_player.name] = other_player.radius
+        count += 1
 
     while len(sizes) < 10:
         sizes[f"FillerValue_{len(sizes)+1}"] = 0
+        count += 1
     # Return the dictionary
     return sizes
 

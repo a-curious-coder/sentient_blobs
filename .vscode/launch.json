@@ -3,22 +3,32 @@
     "configurations": [
 
         {
+            "name": "Main",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}"
+        },
+
+        {
             "name": "Train",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/sentient_blobs/neat-ai.py",
+            "program": "${workspaceFolder}/neat-ai.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "cwd": "${workspaceFolder}/sentient_blobs"
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "Test",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/sentient_blobs/quadtree_test.py",
+            "program": "${workspaceFolder}/quadtree_test.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "cwd": "${workspaceFolder}/sentient_blobs",
+            "cwd": "${workspaceFolder}",
             "args": [
                 "--test"
             ]
@@ -33,7 +43,7 @@
                 "-v",
                 "test_quadtree"
             ],
-            "cwd": "${workspaceFolder}/sentient_blobs",
+            "cwd": "${workspaceFolder}",
             "env": {},
             "envFile": "${workspaceFolder}/.venv",
             "console": "integratedTerminal"

@@ -1,4 +1,5 @@
 """ This module contains functions that handle game events. """
+import math
 import os
 
 import neat
@@ -27,10 +28,8 @@ def handle_mousebuttondown(event, players):
 
 def find_clicked_player(mouse_x, mouse_y, players):
     for player in players:
-        if (
-            player.position.x - player.radius <= mouse_x <= player.position.x + player.radius
-            and player.position.y - player.radius <= mouse_y <= player.position.y + player.radius
-        ):
+        distance = math.sqrt((mouse_x - player.position.x)**2 + (mouse_y - player.position.y)**2)
+        if distance <= player.radius:
             return player
     return None
 
@@ -48,27 +47,3 @@ def handle_new_ai(event, players):
             player.fail_reason = "New AI"
         return True
     return False
-
-def activity_detected(event, players):
-    for filepath in event.file:
-        _, ext = os.path.splitext(filepath)
-        if ext == ".pkl":
-            # Load the .pkl file into your neural network
-            # ... your loading code here ...
-            new_player_path = filepath
-            with open(new_player_path, 'rb') as f:
-                new_genome = pickle.load(f)
-            config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                            neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                            "config-feedforward.txt")
-            net = neat.nn.FeedForwardNetwork.create(winner_genome, config)
-            players.append(
-                Player(
-                    random_x,
-                    random_y,
-                    f"Player {len(players_list)+1}",
-                )
-            )
-            models_list.append(net)
-
-            print(f"Loaded player model from {filepath}")

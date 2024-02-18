@@ -1,8 +1,11 @@
 import pygame
-from components.particle import Particle
-from components.utilities.boundary_shape import BoundaryShape, Circle, Rectangle
 from pygame.locals import *
 from pygame.math import Vector2
+
+from sentient_blobs.components.food import Food
+from sentient_blobs.components.particle import Particle
+from sentient_blobs.components.player import Player
+from sentient_blobs.utilities.boundary_shape import BoundaryShape, Circle, Rectangle
 
 
 class QuadTree:
@@ -33,7 +36,7 @@ class QuadTree:
         )
         final = f"{s}\n" + regions
         return final
-
+    
     def insert(self, particle: Particle):
         """ Inserts a game object into the quadtree
         
@@ -43,9 +46,10 @@ class QuadTree:
         Returns:
             bool: True if the game object was inserted, False otherwise.
         """
+
         if not self.boundary.contains(particle):
             return False
-        
+            
         if len(self.particles) < self.max_particles:
             self.particles.append(particle)
             return True
@@ -68,14 +72,10 @@ class QuadTree:
             self.particles.remove(particle)
             return True
         elif self.divided:
-            if self.nw.remove(particle):
-                return True
-            elif self.ne.remove(particle):
-                return True
-            elif self.sw.remove(particle):
-                return True
-            elif self.se.remove(particle):
-                return True
+            return self.nw.remove(particle) or \
+                    self.ne.remove(particle) or \
+                    self.sw.remove(particle) or \
+                    self.se.remove(particle) 
         return False
 
     def divide(self):
@@ -98,7 +98,7 @@ class QuadTree:
 
         self.divided = True
 
-    def query(self, boundary: BoundaryShape):
+    def query(self, boundary: BoundaryShape, object_type = "Player"):
 
         particles = []
 
@@ -107,15 +107,16 @@ class QuadTree:
 
         # ... and if this node has children, search them too.
         if self.divided:
-            particles += self.nw.query(boundary)
-            particles += self.ne.query(boundary)
-            particles += self.sw.query(boundary)
-            particles += self.se.query(boundary)
+            particles += self.nw.query(boundary, object_type)
+            particles += self.ne.query(boundary, object_type)
+            particles += self.sw.query(boundary, object_type)
+            particles += self.se.query(boundary, object_type)
         
         # Search this node's points to see if they lie within boundary ...
         for particle in self.particles:
             if boundary.contains(particle):
-                particles.append(particle)
+                if object_type in particle.name:
+                    particles.append(particle)
         
         return self.get_particles_ordered(particles)
 

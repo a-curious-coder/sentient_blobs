@@ -1,6 +1,7 @@
 import pygame
-from components.particle import Particle
 from pygame.math import Vector2
+
+from sentient_blobs.components.particle import Particle
 
 
 class BoundaryShape:

@@ -1,10 +1,11 @@
 
 import unittest
 
-from components.particle import Particle
-from components.utilities.boundary_shape import Rectangle
-from components.utilities.quadtree import QuadTree
 from pygame.math import Vector2
+
+from sentient_blobs.components.particle import Particle
+from sentient_blobs.utilities.boundary_shape import Rectangle
+from sentient_blobs.utilities.quadtree import QuadTree
 
 
 class TestQuadTree(unittest.TestCase):
@@ -48,6 +49,6 @@ class TestQuadTree(unittest.TestCase):
 
         self.assertEqual(actual, expected)
 
-    
+
 if __name__ == "__main__":
     unittest.main()

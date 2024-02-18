@@ -4,14 +4,17 @@ import time
 
 import numpy as np
 import pygame
-import settings
-from ai_utilities import (
-    adjust_output_with_noise,
+from pygame.math import Vector2
+
+import sentient_blobs.settings as settings
+from sentient_blobs.components.particle import Particle
+from sentient_blobs.utilities.ai import adjust_output_with_noise
+from sentient_blobs.utilities.boundary_shape import Rectangle
+from sentient_blobs.utilities.general import (
     conflicting_moves,
     get_distance,
     get_random_colour,
 )
-from components.particle import Particle
 
 pygame.init()
 class Player(Particle):
@@ -55,21 +58,26 @@ class Player(Particle):
         self.show_name = False
         self.highlighted = False
         self.highlightColor = None
+        
+        # New
+        vision_distance = 200
+        self.vision_boundary = Rectangle(Vector2(position.x - vision_distance // 2, position.y - vision_distance // 2), Vector2(vision_distance, vision_distance))
 
     def draw(self, screen):
         _radius = self.radius
-
+        # Create surface to draw the player
         surface = pygame.Surface((_radius*2, _radius*2), pygame.SRCALPHA, 32)
+
         ir, ig, ib = self.colour
         pygame.draw.circle(surface, (ir, ig, ib, 80), (int(_radius), int(_radius)), _radius)
+
         if self.highlighted:
             r, g, b = self.highlightColor
-            pygame.draw.circle(surface, (255, 255, 0, 255), (int(_radius), int(_radius)), _radius, 2)
+            pygame.draw.circle(surface, (r, g, b, 255), (int(_radius), int(_radius)), _radius, 2)
         else:
             pygame.draw.circle(surface, (ir, ig, ib, 255), (int(_radius), int(_radius)), _radius, 2)
-        # pygame.draw.circle(screen, (0, 255, 0), self.position, 3)
-        # Draw rectangle around the player based on area
-        pygame.draw.rect(surface, (255, 255, 255, 255), (0, 0, _radius*2, _radius*2), 2)
+
+        self.vision_boundary.draw(surface)
         screen.blit(surface, ( int(self.position.x) - _radius, int(self.position.y) - _radius))
         # pygame.draw.circle(screen, self.color, self.position, self.radius)
         self.highlighted = False
@@ -144,26 +152,22 @@ class Player(Particle):
             keys[key] = key in ai_chosen_moves
 
         # ! If any moves are True, check for conflicting moves
-        self.conflicting_moves = False
         if any(keys):
-            # Move player
-            if conflicting_moves(keys):
-                self.conflicting_moves = True
-                self.conflicting_moves_counter += 1
-                self.in_motion = False
-            else:
-                self.last_move_time = time.time()
-                self.move(keys, w, h)
-                self.in_motion = True
+            self.last_move_time = time.time()
+            self.move(keys, w, h)
+            self.in_motion = True
         else:
             self.in_motion = False
+        
+        vision_distance = 200          
+        self.vision_boundary = Rectangle(Vector2(self.position.x - vision_distance // 2, self.position.y - vision_distance // 2), Vector2(vision_distance, vision_distance))
 
     def add_to_score(self, value):
         self.score += value if value >= 1 else 1
         self.radius = self.base_radius + (self.score)
         self.peak_score = max(self.score, self.peak_score)
 
-    def highlight(self, colour=(0, 255, 0)):
+    def highlight(self, colour=(255, 255, 0)):
         self.highlighted = True
         self.highlightColor = colour
 

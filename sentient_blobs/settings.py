@@ -1,7 +1,7 @@
 player = dict(
     base_radius=10,
-    food_detection = 3,
-    player_detection = 3,
+    food_detection = 10,
+    player_detection = 10,
     base_speed = 3,
     min_speed = 0.6,
     eat_player_threshold = 0.10, # Dictates how much bigger a player must be to eat another player
@@ -16,7 +16,7 @@ food = dict(
 game = dict(
     padding = 50,
     fps = 30,
-    num_food = 50,
+    num_food = 250,
     max_score = 1000,
     frame_limit = 600
 )

@@ -4,20 +4,22 @@ import os
 import pickle
 import time
 
-import settings
-from collision_logic import check_collision, player_eaten_player
-from components.food import Food
-from components.player import Player
-from drawer import draw_stats
-from game_event_handler import (
-    activity_detected,
+from pygame.math import Vector2
+
+import sentient_blobs.settings
+from sentient_blobs.collision_logic import check_collision, player_eaten_player
+from sentient_blobs.components.food import Food
+from sentient_blobs.components.player import Player
+from sentient_blobs.drawer import draw_stats
+from sentient_blobs.game_event_handler import (
     handle_keydown,
     handle_mousebuttondown,
     quit_game,
 )
-from getters import *
-from neat import *
-from pygame.math import Vector2
+from sentient_blobs.getters import *
+from sentient_blobs.neat import *
+from sentient_blobs.utilities.boundary_shape import Rectangle
+from sentient_blobs.utilities.quadtree import QuadTree
 
 pygame.init()
 
@@ -26,7 +28,7 @@ infoObject = pygame.display.Info()
 pygame.display.set_caption("Sentient Blobs")
 w = infoObject.current_w
 h = infoObject.current_h
-
+QUADTREE = None
 SCREEN_WIDTH = 1024  # Increase the width to make the image sharper
 SCREEN_HEIGHT = 1024  # Increase the height to make the image sharper
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -59,9 +61,14 @@ def load_player():
                     config_path)
 
     # Load the winner genome.
+
     winner_genome_path = "winner.pkl"
-    with open(winner_genome_path, 'rb') as f:
-        winner_genome = pickle.load(f)
+    if not os.path.exists(winner_genome_path):
+        print("Error: winner.pkl file not found. Please train a winner model first.")
+        # Add any additional error handling or instructions here
+    else:
+        with open(winner_genome_path, 'rb') as f:
+            winner_genome = pickle.load(f)
 
     # Create the winner net.
     winner_net = neat.nn.FeedForwardNetwork.create(winner_genome, config)
@@ -178,9 +185,6 @@ async def draw_game(players_list, food_list):
     MAX_SCORE = max(player.score for player in players_list)
 
     for player in players_list:
-        # Set colour between red and green based on score (0, max_score)
-        # 0 = red, max_score = green
-        # 0 = 255, max_score = 0
         colour = (255, 0, 0)
         if MAX_SCORE > 0:
             colour = (
@@ -218,36 +222,26 @@ async def draw_game(players_list, food_list):
     selected_player = next((player for player in players_list if player.selected), None)
 
     if selected_player:
-        # Draw lines to the 10 nearest foods to the selected player
-        player_x = selected_player.x
-        player_y = selected_player.y
-        food_distances = calculate_and_sort_player_distances(selected_player, food_list)
-        nearest_food = list(food_distances.items())[:FOOD_DETECTION]
-        for food_name, _ in nearest_food:
-            food_obj = next((obj for obj in food_list if obj.name == food_name), None)
-            if food_obj:
-                pygame.draw.aaline(
-                    surface=WIN,
-                    color=(0, 255, 0, 100),
-                    start_pos=(player_x, player_y),
-                    end_pos=(food_obj.x, food_obj.y)
-                )
-                    
+        nearest_food_obj = QUADTREE.query(selected_player.vision_boundary, object_type="Food")
+        nearest_player_obj = QUADTREE.query(selected_player.vision_boundary, "Player")
+        selected_player.vision_boundary.draw(WIN)
 
-        # Draw lines to the 10 nearest players to the selected player
-        player_distances = calculate_and_sort_player_distances(selected_player, players_list)
-        nearest_players = list(player_distances.items())[:PLAYER_DETECTION]
-        for player_name, _ in nearest_players:
-            other_player = next(
-                (obj for obj in players_list if obj.name == player_name), None
+        for food_obj in nearest_food_obj:
+            pygame.draw.aaline(
+                surface=WIN,
+                color=(255, 255, 0, 100),
+                start_pos=(selected_player.position.x, selected_player.position.y),
+                end_pos=(food_obj.position.x, food_obj.position.y)
             )
-            if other_player:
-                pygame.draw.aaline(
-                    surface=WIN,
-                    color=(255, 0, 0, 100),
-                    start_pos=(player_x, player_y),
-                    end_pos=(other_player.x, other_player.y),
-                )
+
+        for player_obj in nearest_player_obj:
+            pygame.draw.aaline(
+                surface=WIN,
+                color=(255, 0, 0, 100),
+                start_pos=(selected_player.position.x, selected_player.position.y),
+                end_pos=(player_obj.position.x, player_obj.position.y)
+            )
+
         # Draw stats for the selected player
         draw_stats(selected_player, WIN, SCREEN_WIDTH)
     # Draw box for dropping AI pkl files
@@ -261,11 +255,12 @@ async def draw_game(players_list, food_list):
 async def main():
     """ Game loop """
     print(f"Screen resolution: {w}x{h}")
-
+    global QUADTREE
+    global CURRENT_FRAME, SCREEN_WIDTH, SCREEN_HEIGHT, GAME_TIME, FRAME_LIMIT, SCORE_LIMIT, WIN  # use the global variable gen and SCREEN
+    region = Rectangle(Vector2(0, 0), Vector2(SCREEN_WIDTH, SCREEN_HEIGHT))
     while True:
-        global CURRENT_FRAME, SCREEN_WIDTH, SCREEN_HEIGHT, GAME_TIME, FRAME_LIMIT, SCORE_LIMIT, WIN  # use the global variable gen and SCREEN
-
         print(f"{'Name':^10}{'Fitness':^10}{'Peak':^10}{'Score':^10}{'p_eaten':^10}{'f_eaten':^10}{'Distance':^10}{'Death Reason':<20}")
+
 
         # ! Load the winner
         winner_net = load_player()
@@ -297,7 +292,7 @@ async def main():
         # ! GAME LOOP
         while game_running:
             CURRENT_FRAME += 1
-
+            QUADTREE = QuadTree(region, 4)
             # ! Check if the game is finished
             if game_finished(players_list):
                 players_list.pop()
@@ -306,6 +301,13 @@ async def main():
                 continue
 
             players_list = check_for_game_events(players_list, models_list)
+
+            # ! Reset the quadtree
+            for player in players_list:
+                QUADTREE.insert(player)
+            
+            for food in food_list:
+                QUADTREE.insert(food)
 
             GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
 
@@ -320,7 +322,17 @@ async def main():
                     delete_player(player_index, players_list, models_list)
                     continue
 
-                process_player_collision(players_list , player)
+                nearby_players = QUADTREE.query(player.vision_boundary)
+                player.vision_boundary.draw(WIN)
+                process_player_collision(nearby_players, player)
+
+                nearby_food = QUADTREE.query(player.vision_boundary, "Food")
+                for f in nearby_food:
+                    if check_collision(f, player):
+                        player.add_to_score(f.value)
+                        player.food_eaten += 1
+                        player.last_eaten_time = time.time()
+                        food_list.remove(f)
 
                 # ! Player punishments
                 starve_value = int(player.score * SCORE_REDUCTION)
@@ -328,7 +340,7 @@ async def main():
                 player.score -= starve_value
 
                 # ! Gather inputs for player's genome
-                inputs = get_inputs(player, players_list, food_list)
+                inputs = get_inputs(player, nearby_players, nearby_food)
 
                 # ! Get the output from the neural network
                 output = models_list[player_index].activate(inputs)
@@ -339,18 +351,6 @@ async def main():
                     delete_player(player_index, players_list, models_list)
                 
                 player.peak_score = max(player.score, player.peak_score)
-
-
-            # ! Update food positions and check for collisions
-            for food_item in food_list[:]:
-                for player in players_list:
-                    if check_collision(food_item, player):
-                        # player.add_to_score(food_item.value)
-                        player.score += 1
-                        player.food_eaten += 1
-                        player.last_eaten_time = time.time()
-                        food_list.remove(food_item)
-                        break
 
             # ! Ensure there are always correct number of food items on the screen
             ensure_food(food_list, players_list)
