@@ -1,13 +1,14 @@
 import math
 import random
 
+import modules.settings as settings
 import pygame
-import settings
-from components.food import Food
-from components.player import Player
-from components.point import Point
-from components.utilities.boundary_shape import Circle, Rectangle
-from components.utilities.quadtree import QuadTree
+from modules.components.food import Food
+from modules.components.player import Player
+from modules.components.point import Point
+from modules.utilities.boundary_shape import Circle, Rectangle
+from modules.utilities.collision_logic import get_colliding_particles
+from modules.utilities.quadtree import QuadTree
 from pygame.locals import *
 from pygame.math import Vector2
 
@@ -103,14 +104,6 @@ def get_players(n = 10):
     return players_list
 
 
-def reset_quadtree(quadtree, players):
-    """Resets the quadtree with the current player positions
-    """
-    for player in players:
-        quadtree.insert(player)
-    return quadtree
-
-
 def main():
     FPS = 1000
     clock = pygame.time.Clock()
@@ -122,26 +115,11 @@ def main():
     quadtree = QuadTree(boundary, NODE_CAPACITY)
     use_quadtree = True
     sizes = settings.player["base_radius"]
-
+    show_check_lines = False
     players = get_players(n=1)
     foods = get_food() 
 
     while running:
-        clock.tick(FPS)
-        collisions = 0
-        eliminate_foods = []
-        # Clear the screen
-        screen.fill((0, 0, 0))
-
-        # Draw fps
-        fps = font.render(f"FPS: {int(clock.get_fps())}", True, (255, 255, 255))
-        screen.blit(fps, (10, 30))
-
-        # Draw number of players
-        num_players = font.render(f"Players: {len(players)}", True, (255, 255, 255))
-        screen.blit(num_players, (10, 50))
-
-
         for event in pygame.event.get():
             if event.type == QUIT:
                 running = False
@@ -163,6 +141,22 @@ def main():
                     showQuadTree = not showQuadTree
                 if event.key == K_f:
                     use_quadtree = not use_quadtree
+                if event.key == K_s:
+                    show_check_lines = not show_check_lines
+
+        clock.tick(FPS)
+        collisions = 0
+        eliminate_foods = []
+        # Clear the screen
+        screen.fill((0, 0, 0))
+
+        # Draw fps
+        fps = font.render(f"FPS: {int(clock.get_fps())}", True, (255, 255, 255))
+        screen.blit(fps, (10, 30))
+
+        # Draw number of players
+        num_players = font.render(f"Players: {len(players)}", True, (255, 255, 255))
+        screen.blit(num_players, (10, 50))
 
         quadtree = QuadTree(boundary, NODE_CAPACITY)
 
@@ -174,54 +168,44 @@ def main():
                 continue
             # Move the player randomly
             if moveParticles:
-                # quadtree.remove(player)
                 player.move_randomly(screen)
-                # quadtree.insert(player)
             quadtree.insert(player)
-            # player.draw(screen)
 
         for food in foods:
             quadtree.insert(food)
-            food.draw(screen)
         
+        nearby_players = players
+        nearby_food = foods
 
-        if use_quadtree:
-            # Check for collisions
-            for player in players:
-                # if player == players[0]:
-                r = player.radius * 4
-                # _range = Circle(player.position, player.radius)
-                rectRangeX, rectRangeY = player.position.x - r / 2, player.position.y - r / 2
-                _rectRange = Rectangle(Vector2(rectRangeX, rectRangeY), Vector2(r, r))
-                # Draw the range
-                _rectRange.draw(screen, (128, 128, 128))
-                closeby_objects = quadtree.query(_rectRange)
+        # Check for collisions
+        for player in players:
+            
+            if use_quadtree:
+                nearby_players = quadtree.query(player.vision_boundary)
+                nearby_food = quadtree.query(player.vision_boundary, object_type="Food")
+            
+            # ! Draw lines to nearby objects that are being checked for collisions with the player
+            if show_check_lines:
+                for p in nearby_players:
+                    pygame.draw.line(screen, (255, 255, 255), player.position, p.position)
+                for f in nearby_food:
+                    pygame.draw.line(screen, (255, 0, 0), player.position, f.position)
 
-                print(f'Number of found points = {len(closeby_objects)}/{len(quadtree)}')
-                if len(closeby_objects) > 1:
-                    for closeby_object in closeby_objects:
-                        if player != closeby_object:
-                            if player.collides_with(closeby_object):
-                                collisions += 1
-                                player.highlight()
-                                closeby_object.highlight(colour=(255,0,0))
-                            else:
-                                closeby_object.highlight(colour=(0,255,255))
-                        # Create a surface for transparent lines
-                        # pygame.draw.line(screen, (128, 128, 128, 60), player.position, closeby_object.position, 2)
-                player.draw(screen)
-        else:
-            print(f'Number of found points = {len(players)-1}')
-
-            for player in players:
-                for other in players:
-                    if player != other:
-                        if player.collides_with(other):
-                            collisions += 1
-                            player.highlight()
-                            other.highlight()
-                    pygame.draw.line(screen, (0, 255, 0, 60), player.position, other.position, 1)
-                player.draw(screen)
+            # ! Highlight colliding objects
+            colliding_objects = get_colliding_particles(player, nearby_players)
+            colliding_objects2 = get_colliding_particles(player, nearby_food)
+            for o in colliding_objects:
+                player.highlight()
+                o.highlight(colour=(255,128,64))
+                
+            for o in colliding_objects2:
+                player.highlight()
+                o.highlight(colour=(255,0,0))
+                
+            player.draw(screen)
+        
+        for food in foods:
+            food.draw(screen)                   
 
         # Draw num of collisions
         text = font.render(f"Collisions: {collisions}", True, (255, 255, 255))
