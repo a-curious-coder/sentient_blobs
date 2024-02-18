@@ -84,3 +84,20 @@ class Particle:
         - str: The string representation of the particle.
         """
         return f"{self.id}"
+
+    def __eq__(self, rhs_particle) -> bool:
+        """
+        Return a bool representing whether the two particles are equal
+
+        Parameters:
+        - particle rhs_particle -> particle on right hand side of ==
+
+        Returns:
+        - bool: bool representing if the two particles are equal
+        """
+        is_equal = True
+        is_equal &= (self.id == rhs_particle.id)
+        is_equal &= (self.position == rhs_particle.position)
+        is_equal &= (self.radius == rhs_particle.radius)
+        is_equal &= (self.colour == rhs_particle.colour)
+        return is_equal

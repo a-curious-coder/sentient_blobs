@@ -4,6 +4,7 @@ import unittest
 from pygame.math import Vector2
 
 from sentient_blobs.components.particle import Particle
+from sentient_blobs.components.player import Player
 from sentient_blobs.utilities.boundary_shape import Rectangle
 from sentient_blobs.utilities.quadtree import QuadTree
 
@@ -39,16 +40,20 @@ class TestQuadTree(unittest.TestCase):
         self.assertEqual(actual, expected)
 
     def test_query(self):
-        # Create five particles
-        particles = [Particle(f"Test_{i}", Vector2(25, 50), 2, (255, 255, 255)) for i in range(5)]
+        num_particles = 5
+
+        # Create five Players
+        particles = [Player(Vector2(25, 50), i) for i in range(num_particles)]
         for particle in particles:
             self.tree.insert(particle)
 
         actual = self.tree.query(self.boundary)
-        expected = [particle for particle in particles]
+        expected = particles
 
-        self.assertEqual(actual, expected)
-
+        self.assertEqual(len(actual), len(expected))
+        
+        for i in range(num_particles):
+            self.assertTrue(actual[i] == expected[i])
 
 if __name__ == "__main__":
     unittest.main()

@@ -114,8 +114,10 @@ class QuadTree:
         
         # Search this node's points to see if they lie within boundary ...
         for particle in self.particles:
+            # Ensure that the check of the object type to the name only applies to subclasses of Particle that have a name field
+            assert(issubclass(type(particle), Particle))
             if boundary.contains(particle):
-                if object_type in particle.name:
+                if object_type in  particle.name:
                     particles.append(particle)
         
         return self.get_particles_ordered(particles)
