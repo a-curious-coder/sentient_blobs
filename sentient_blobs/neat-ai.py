@@ -1,6 +1,7 @@
 import asyncio
 import cProfile
 import math
+import os
 import pickle
 import random
 import re
@@ -402,20 +403,38 @@ def main(config_file):
     stats = modules.neat.StatisticsReporter()
     neat_pop.add_reporter(stats)
     
+    # Define the folder where winners will be saved
+    winners_folder = "winners"
+    if not os.path.exists(winners_folder):
+        os.makedirs(winners_folder)
+    
+    # Run the NEAT algorithm for  1000 generations
+    for generation in range(MAX_GEN):
+        neat_pop.run(evaluate_genomes,   1)  # Run for  1 generation
+
+        # If the generation is a multiple of  10, save the winner
+        if (generation +  1) %  10 ==  0:
+            winner = stats.best_genome()
+            date_time = time.strftime("%y_%m_%d_%H_%M")
+            filename = f"winner_gen_{generation+1}_{date_time}.pkl"
+            filepath = os.path.join(winners_folder, filename)
+            with open(filepath, "wb") as f:
+                pickle.dump(winner, f)
+
     # Call the run method on the Population object, giving it your fitness function and (optionally) the maximum number of generations you want NEAT to run
-    neat_pop.run(evaluate_genomes, MAX_GEN)
+    # neat_pop.run(evaluate_genomes, MAX_GEN)
     
     # Get the most fit genome genome as our winner with the statistics.best_genome() function
-    winner = stats.best_genome()
+    # winner = stats.best_genome()
     # Get todays date and time in dd_mm_yy HH:mm format to prepare for file name
-    date_time = time.strftime("%y_%m_%d_%H_%M")
-    # Save the winner genome to a file using the pickle module
-    filename = f"winner_{date_time}.pkl"
-    with open(filename, "wb") as f:
-        pickle.dump(winner, f)
-        f.close()
+    # date_time = time.strftime("%y_%m_%d_%H_%M")
+    # # Save the winner genome to a file using the pickle module
+    # filename = f"winner_{date_time}.pkl"
+    # with open(filename, "wb") as f:
+    #     pickle.dump(winner, f)
+    #     f.close()
     # Show the final statistics
-    print(f'\nBest genome:\n{winner}')
+    # print(f'\nBest genome:\n{winner}')
 
 
 if __name__ == "__main__":

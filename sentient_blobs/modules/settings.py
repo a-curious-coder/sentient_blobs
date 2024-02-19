@@ -1,5 +1,5 @@
 player = dict(
-    base_radius=15,
+    base_radius=5,
     food_detection = 10,
     player_detection = 10,
     base_speed = 3,
@@ -16,12 +16,12 @@ food = dict(
 game = dict(
     padding = 50,
     fps = 30,
-    num_food = 250,
+    num_food = 350,
     max_score = 1000,
     frame_limit = 600
 )
 
 neat = dict(
     max_score = 1000,
-    max_gen = 100,
+    max_gen = 10000,
 )

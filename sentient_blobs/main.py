@@ -133,10 +133,10 @@ def check_for_game_events(players, models):
                 new_player_path = filepath
                 with open(new_player_path, 'rb') as f:
                     new_genome = pickle.load(f)
-                config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                config = modules.neat.Config(modules.neat.DefaultGenome, modules.neat.DefaultReproduction,
+                                modules.neat.DefaultSpeciesSet, modules.neat.DefaultStagnation,
                                 "config-feedforward.txt")
-                net = neat.nn.FeedForwardNetwork.create(new_genome, config)
+                net = modules.neat.nn.FeedForwardNetwork.create(new_genome, config)
                 # Calculate mouse position
                 mouse_x, mouse_y = pygame.mouse.get_pos()
                 players.append(Player(Vector2(mouse_x, mouse_y), len(players)+1))
@@ -145,6 +145,8 @@ def check_for_game_events(players, models):
                 print(f"Loaded player model from {filepath}")
             else:
                 print(f"Invalid file type. Only .pkl files are accepted.")
+        # If player clicks on button, let them upload a .pkl file to play with
+        
 
     return players
 
@@ -257,13 +259,14 @@ async def main():
 
         # Load all pkl files with winner_ prefix
         winners = []
+        winner_path = os.getcwd() + "\winners"
         # Get all the files in the current directory
-        files = os.listdir()
+        files = os.listdir(winner_path)
         winner_genome_path = None
         for file in files:
             if file.startswith("winner_") and file.endswith(".pkl"):
                 winner_genome_path = file
-                winners.append(load_player(winner_genome_path))
+                winners.append(load_player(winner_path + "\\" + winner_genome_path))
 
         # ! Load the winner
         # Calculate game's end time from now

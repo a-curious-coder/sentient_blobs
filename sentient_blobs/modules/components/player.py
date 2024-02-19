@@ -56,12 +56,22 @@ class Player(Particle):
         self.highlightColor = None
         
         # New
-        self.vision_boundary = Rectangle(Vector2(position.x - self.vision_distance // 2, position.y - self.vision_distance // 2), Vector2(self.vision_distance, self.vision_distance))
+        self.vision_boundary = Rectangle(Vector2(position.x - (self.vision_distance // 2) - self.radius, 
+                                                position.y - (self.vision_distance // 2) - self.radius), 
+                                        Vector2(self.vision_distance, 
+                                                self.vision_distance))
 
     def draw(self, screen):
-        self.vision_boundary = Rectangle(Vector2(self.position.x - self.vision_distance // 2, self.position.y - self.vision_distance // 2), Vector2(self.vision_distance, self.vision_distance))
-
         _radius = self.radius
+        # Calculate the width and height of the rectangle based on vision_distance
+        width = self.vision_distance + (2 * _radius)
+        height = self.vision_distance + (2 * _radius)
+
+        # Calculate the top-left corner of the rectangle
+        top_left = Vector2(self.position.x - (self.vision_distance //  2) - _radius,  
+                        self.position.y - (self.vision_distance //  2) - _radius)
+        # Create the Rectangle object using the top-left corner and the width and height
+        self.vision_boundary = Rectangle(Vector2(top_left.x, top_left.y), Vector2(width, height))
         # Create surface to draw the player
         surface = pygame.Surface((_radius*3, _radius*3), pygame.SRCALPHA, 32)
 
@@ -74,7 +84,7 @@ class Player(Particle):
         else:
             pygame.draw.circle(surface, (ir, ig, ib, 255), (int(_radius), int(_radius)), _radius, 2)
 
-        self.vision_boundary.draw(surface)
+        # self.vision_boundary.draw(screen)
         screen.blit(surface, ( int(self.position.x) - _radius, int(self.position.y) - _radius))
         # pygame.draw.circle(screen, self.color, self.position, self.radius)
         self.highlighted = False
@@ -83,20 +93,47 @@ class Player(Particle):
             text = self.font.render(str(self.id), 1, (255, 255, 255))
             screen.blit(text, (self.position.x - text.get_width() / 2, self.position.y - text.get_height() / 2))
 
+    # def move(self, keys, width, height):
+    #     self.distance_travelled += self.speed
+
+    #     if keys[pygame.K_LEFT]:
+    #         self.position.x = max(self.position.x - self.speed, self.radius)
+
+    #     if keys[pygame.K_RIGHT]:
+    #         self.position.x = min(self.position.x + self.speed, width - self.radius)
+
+    #     if keys[pygame.K_UP]:
+    #         self.position.y = max(self.position.y - self.speed, self.radius)
+
+    #     if keys[pygame.K_DOWN]:
+    #         self.position.y = min(self.position.y + self.speed, height - self.radius)
+
     def move(self, keys, width, height):
         self.distance_travelled += self.speed
 
         if keys[pygame.K_LEFT]:
-            self.position.x = max(self.position.x - self.speed, self.radius)
+            if self.position.x - self.speed <  0:
+                self.position.x = width - self.radius
+            else:
+                self.position.x -= self.speed
 
         if keys[pygame.K_RIGHT]:
-            self.position.x = min(self.position.x + self.speed, width - self.radius)
+            if self.position.x + self.speed > width - self.radius:
+                self.position.x = self.radius
+            else:
+                self.position.x += self.speed
 
         if keys[pygame.K_UP]:
-            self.position.y = max(self.position.y - self.speed, self.radius)
+            if self.position.y - self.speed <  0:
+                self.position.y = height - self.radius
+            else:
+                self.position.y -= self.speed
 
         if keys[pygame.K_DOWN]:
-            self.position.y = min(self.position.y + self.speed, height - self.radius)
+            if self.position.y + self.speed > height - self.radius:
+                self.position.y = self.radius
+            else:
+                self.position.y += self.speed
 
     def move_randomly(self, screen):
         """ Moves the player randomly at speed within the bounds of the screen """
