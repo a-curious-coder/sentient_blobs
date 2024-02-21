@@ -1,8 +1,8 @@
 import pygame
-from modules.components.food import Food
-from modules.components.particle import Particle
-from modules.components.player import Player
-from modules.utilities.boundary_shape import BoundaryShape, Circle, Rectangle
+from sentient_blobs.modules.components.food import Food
+from sentient_blobs.modules.components.particle import Particle
+from sentient_blobs.modules.components.player import Player
+from sentient_blobs.modules.utilities.boundary_shape import BoundaryShape, Circle, Rectangle
 from pygame.locals import *
 from pygame.math import Vector2
 
