@@ -1,12 +1,15 @@
 
 import unittest
 
+from parameterized import parameterized
 from pygame.math import Vector2
 
-from sentient_blobs.components.particle import Particle
-from sentient_blobs.components.player import Player
-from sentient_blobs.utilities.boundary_shape import Rectangle
-from sentient_blobs.utilities.quadtree import QuadTree
+from sentient_blobs.modules.components.food import Food
+from sentient_blobs.modules.components.particle import Particle
+from sentient_blobs.modules.components.player import Player
+from sentient_blobs.modules.utilities.boundary_shape import Rectangle
+from sentient_blobs.modules.utilities.quadtree import QuadTree
+from pygame.math import Vector2
 
 
 class TestQuadTree(unittest.TestCase):
@@ -25,6 +28,7 @@ class TestQuadTree(unittest.TestCase):
         self.tree.insert(self.particle)
         self.assertTrue(self.tree.remove(self.particle))
         self.assertFalse(self.tree.particles)
+        self.assertFalse(self.tree.remove(self.particle))
 
     def test_str(self):
         self.assertEqual(str(self.tree), "Rectangle: [0, 0], [100, 100]")
@@ -39,21 +43,30 @@ class TestQuadTree(unittest.TestCase):
         
         self.assertEqual(actual, expected)
 
-    def test_query(self):
-        num_particles = 5
+    @parameterized.expand([
+        ("Player", 5),
+        ("Food", 5),
+    ])
+    def test_query(self, particle_type, num_particles):
 
-        # Create five Players
-        particles = [Player(Vector2(25, 50), i) for i in range(num_particles)]
+        particles = []
+        if particle_type == "Player":
+            # Create five Players
+            particles = [Player(Vector2(25, 50), i) for i in range(num_particles)]
+        else:
+            particles = [Food(Vector2(25, 50), i) for i in range(num_particles)]
+
         for particle in particles:
             self.tree.insert(particle)
 
-        actual = self.tree.query(self.boundary)
+        ## Make sure to search only for the relevant object
+        actual = self.tree.query(self.boundary, particle_type)
         expected = particles
 
         self.assertEqual(len(actual), len(expected))
         
         for i in range(num_particles):
-            self.assertTrue(actual[i] == expected[i])
+            self.assertTrue(actual[i] in expected)
 
 if __name__ == "__main__":
     unittest.main()

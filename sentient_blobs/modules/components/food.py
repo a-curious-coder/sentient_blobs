@@ -1,9 +1,9 @@
 import random
 
-import modules.settings as settings
+import sentient_blobs.modules.settings as settings
 import pygame
-from modules.components.particle import Particle
-from modules.utilities.general import get_random_colour
+from sentient_blobs.modules.components.particle import Particle
+from sentient_blobs.modules.utilities.general import get_random_colour
 
 
 class Food(Particle):

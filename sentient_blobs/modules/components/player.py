@@ -2,13 +2,13 @@ import math
 import random
 import time
 
-import modules.settings as settings
+import sentient_blobs.modules.settings as settings
 import numpy as np
 import pygame
-from modules.components.particle import Particle
-from modules.utilities.ai import adjust_output_with_noise
-from modules.utilities.boundary_shape import Rectangle
-from modules.utilities.general import conflicting_moves, get_distance, get_random_colour
+from sentient_blobs.modules.components.particle import Particle
+from sentient_blobs.modules.utilities.ai import adjust_output_with_noise
+from sentient_blobs.modules.utilities.boundary_shape import Rectangle
+from sentient_blobs.modules.utilities.general import conflicting_moves, get_distance, get_random_colour
 from pygame.math import Vector2
 
 pygame.init()
