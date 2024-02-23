@@ -8,9 +8,9 @@
 __pycache__/
 
 # Ignore build output directories
+build/
 /build/
-/dist/
-sentient_blobs/build/
+dist/
 # Ignore virtual environment
 /.venv/
 
