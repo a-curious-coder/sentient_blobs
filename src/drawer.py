@@ -12,7 +12,7 @@ def draw_stats(selected_player, WIN, SCREEN_WIDTH):
     conflicting_moves_text = font.render(f"Conflicting Moves: {selected_player.conflicting_moves}", True, (255, 255, 255))
     in_motion_text = font.render(f"In Motion: {selected_player.in_motion}", True, (255, 255, 255))
     radius_text = font.render(f"Radius: {selected_player.radius}", True, (255, 255, 255))  # Add radius text
-    
+    speed_text = font.render(f"Speed: {selected_player.speed}", True, (255, 255, 255))  # Add speed text
     # Create a transparent card surface
     card_width = 300
     card_height = 230  # Increase card height to accommodate radius text
@@ -30,6 +30,7 @@ def draw_stats(selected_player, WIN, SCREEN_WIDTH):
     card_surface.blit(conflicting_moves_text, (text_x, text_y + 4 * text_spacing))
     card_surface.blit(in_motion_text, (text_x, text_y + 5 * text_spacing))
     card_surface.blit(radius_text, (text_x, text_y + 6 * text_spacing))  # Position radius text
+    card_surface.blit(speed_text, (text_x, text_y + 7 * text_spacing))  # Position speed text
     
     # Position the card on the window
     card_x = SCREEN_WIDTH - card_width - 10

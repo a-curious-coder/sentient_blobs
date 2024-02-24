@@ -24,8 +24,8 @@ PAUSED = False
 infoObject = pygame.display.Info()
 w = infoObject.current_w
 h = infoObject.current_h
-SCREEN_WIDTH = w 
-SCREEN_HEIGHT = h
+SCREEN_WIDTH = w // 2
+SCREEN_HEIGHT = h // 2
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 GAME_PADDING = settings.game["padding"]

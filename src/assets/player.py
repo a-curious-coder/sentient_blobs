@@ -35,7 +35,7 @@ class Player(Particle):
         self.name = f"Player_{id}"
         self.score = 0
         self.base_radius = settings.player["base_radius"]
-        self.speed = settings.player["base_speed"]
+        self.speed = settings.player["max_speed"]
         self.last_eaten_time = time.time()
         self.players_eaten = 0
         self.food_eaten = 0
@@ -96,24 +96,9 @@ class Player(Particle):
             text = self.font.render(str(self.id), 1, (255, 255, 255))
             screen.blit(text, (self.position.x - text.get_width() / 2, self.position.y - text.get_height() / 2))
 
-    # def move(self, keys, width, height):
-    #     self.distance_travelled += self.speed
-
-    #     if keys[pygame.K_LEFT]:
-    #         self.position.x = max(self.position.x - self.speed, self.radius)
-
-    #     if keys[pygame.K_RIGHT]:
-    #         self.position.x = min(self.position.x + self.speed, width - self.radius)
-
-    #     if keys[pygame.K_UP]:
-    #         self.position.y = max(self.position.y - self.speed, self.radius)
-
-    #     if keys[pygame.K_DOWN]:
-    #         self.position.y = min(self.position.y + self.speed, height - self.radius)
-
     def move(self, keys, width, height):
         self.distance_travelled += self.speed
-
+        self.adjust_speed()
         if keys[pygame.K_LEFT]:
             if self.position.x - self.speed <  0:
                 self.position.x = width - self.radius
@@ -198,8 +183,19 @@ class Player(Particle):
         
     def add_to_score(self, value):
         self.score += value if value >= 1 else 1
-        self.radius = self.base_radius + (self.score)
+        if self.score >= 60:
+            self.radius = self.base_radius + 60 + (self.score - 60) * 0.5
+        elif self.score >= 90:
+            self.radius = self.base_radius + 90 + (self.score - 90) * 0.25
+        else:
+            self.radius = self.base_radius + (self.score)
         self.peak_score = max(self.score, self.peak_score)
+
+    def adjust_speed(self):
+        
+        # Ensure speed is a value between min_speed and max_speed based on the player's score
+        speed = (1 - (self.score / settings.player["speed_reduction_rate"])) * settings.player["max_speed"]
+        self.speed = max(speed, settings.player["min_speed"])
 
     def highlight(self, colour=(255, 255, 0)):
         self.highlighted = True
