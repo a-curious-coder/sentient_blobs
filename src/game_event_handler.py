@@ -5,7 +5,7 @@ import os
 import pygame
 
 
-def quit_game(event, players):
+def quit_game():
     pygame.quit()
     quit()
 

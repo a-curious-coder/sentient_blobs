@@ -13,9 +13,10 @@ def draw_stats(selected_player, WIN, SCREEN_WIDTH):
     in_motion_text = font.render(f"In Motion: {selected_player.in_motion}", True, (255, 255, 255))
     radius_text = font.render(f"Radius: {selected_player.radius}", True, (255, 255, 255))  # Add radius text
     speed_text = font.render(f"Speed: {selected_player.speed}", True, (255, 255, 255))  # Add speed text
+    angle_text = font.render(f"Angle: {selected_player.movement_angle}", True, (255, 255, 255))  # Add speed text
     # Create a transparent card surface
     card_width = 300
-    card_height = 230  # Increase card height to accommodate radius text
+    card_height = 300  # Increase card height to accommodate radius text
     card_surface = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
     card_surface.fill((255, 255, 255, 128))  # Transparent black background
     
@@ -31,6 +32,7 @@ def draw_stats(selected_player, WIN, SCREEN_WIDTH):
     card_surface.blit(in_motion_text, (text_x, text_y + 5 * text_spacing))
     card_surface.blit(radius_text, (text_x, text_y + 6 * text_spacing))  # Position radius text
     card_surface.blit(speed_text, (text_x, text_y + 7 * text_spacing))  # Position speed text
+    card_surface.blit(angle_text, (text_x, text_y + 8 * text_spacing))  # Position angle text
     
     # Position the card on the window
     card_x = SCREEN_WIDTH - card_width - 10

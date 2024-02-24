@@ -57,6 +57,7 @@ class Player(Particle):
         self.show_name = False
         self.highlighted = False
         self.highlightColor = None
+        self.movement_angle = 0
         
         # New
         self.vision_boundary = Rectangle(Vector2(position.x - (self.vision_distance // 2) - self.radius, 
@@ -88,7 +89,7 @@ class Player(Particle):
             pygame.draw.circle(surface, (ir, ig, ib, 255), (int(_radius), int(_radius)), _radius, 2)
 
         # self.vision_boundary.draw(screen)
-        screen.blit(surface, ( int(self.position.x) - _radius, int(self.position.y) - _radius))
+        screen.blit(surface, (int(self.position.x) - _radius, int(self.position.y) - _radius))
         # pygame.draw.circle(screen, self.color, self.position, self.radius)
         self.highlighted = False
         # Draw id
@@ -142,44 +143,83 @@ class Player(Particle):
         # If the distance is less than the sum of the two radii, the circles are colliding.
         return distance <= threshold
         
-    def process_player_movement(self, output, w, h):
-        keys = {
-            pygame.K_LEFT: False,
-            pygame.K_RIGHT: False,
-            pygame.K_UP: False,
-            pygame.K_DOWN: False,
-        }
 
-        key_mapping = {
-            0: {pygame.K_LEFT},
-            1: {pygame.K_RIGHT},
-            2: {pygame.K_UP},
-            3: {pygame.K_DOWN},
-        }
-        # Convert the output to probabilities of which choice it's making
-        probabilities = np.exp(output) / np.sum(np.exp(output))
-        probabilities = adjust_output_with_noise(probabilities)
-        # Choose the action with the highest probability
-        # NOTE: A single action could select multiple moves as some values represent pairs of simultaneous moves
-        max_probability = np.max(probabilities)
-        max_indices = np.where(probabilities == max_probability)[0]
-        actions = max_indices.tolist()
-        ai_chosen_moves = []
-        for action in actions:
-            # Map the action to corresponding key press(es)
-            ai_chosen_moves += key_mapping[action]
+    def process_player_movement(self, output, width, height):
+        # Ensure output has at least two elements
+        if len(output) < 2:
+            raise ValueError("Output must contain at least two elements for angle and speed.")
 
-        # Map the action to key press(es)
-        for key in keys:
-            keys[key] = key in ai_chosen_moves
+        # Ensure self.speed is a positive number
+        if self.speed <= 0:
+            raise ValueError("Player speed must be a positive number.")
 
-        # ! If any moves are True, check for conflicting moves
-        if any(keys):
-            self.last_move_time = time.time()
-            self.move(keys, w, h)
-            self.in_motion = True
-        else:
-            self.in_motion = False
+        # Convert the output between 0 and 1 to an angle in radians
+        angle = output[0] * 2 * np.pi
+        # Convert angle to value between 0 and 360
+        anglee = np.degrees(angle)
+        self.movement_angle = anglee
+        self.set_max_speed()
+        # Convert the second of two outputs to a speed between 0 and 1
+        self.speed = max(settings.player["min_speed"], output[1] * self.speed)
+
+        # Calculate the new position using anglee
+        new_x = self.position.x + self.speed * np.cos(angle)
+        new_y = self.position.y + self.speed * np.sin(angle)
+
+        # Wrap around the boundaries of the map
+        if new_x < 0:
+            new_x = width
+        elif new_x > width:
+            new_x = 0
+
+        if new_y < 0:
+            new_y = height
+        elif new_y > height:
+            new_y = 0
+
+        self.position.x = new_x
+        self.position.y = new_y
+
+
+    
+    # def process_player_movement(self, output, w, h):
+    #     keys = {
+    #         pygame.K_LEFT: False,
+    #         pygame.K_RIGHT: False,
+    #         pygame.K_UP: False,
+    #         pygame.K_DOWN: False,
+    #     }
+
+    #     key_mapping = {
+    #         0: {pygame.K_LEFT},
+    #         1: {pygame.K_RIGHT},
+    #         2: {pygame.K_UP},
+    #         3: {pygame.K_DOWN},
+    #     }
+    #     # Convert the output to probabilities of which choice it's making
+    #     probabilities = np.exp(output) / np.sum(np.exp(output))
+    #     probabilities = adjust_output_with_noise(probabilities)
+    #     # Choose the action with the highest probability
+    #     # NOTE: A single action could select multiple moves as some values represent pairs of simultaneous moves
+    #     max_probability = np.max(probabilities)
+    #     max_indices = np.where(probabilities == max_probability)[0]
+    #     actions = max_indices.tolist()
+    #     ai_chosen_moves = []
+    #     for action in actions:
+    #         # Map the action to corresponding key press(es)
+    #         ai_chosen_moves += key_mapping[action]
+
+    #     # Map the action to key press(es)
+    #     for key in keys:
+    #         keys[key] = key in ai_chosen_moves
+
+    #     # ! If any moves are True, check for conflicting moves
+    #     if any(keys):
+    #         self.last_move_time = time.time()
+    #         self.move(keys, w, h)
+    #         self.in_motion = True
+    #     else:
+    #         self.in_motion = False
         
     def add_to_score(self, value):
         self.score += value if value >= 1 else 1
@@ -191,8 +231,7 @@ class Player(Particle):
             self.radius = self.base_radius + (self.score)
         self.peak_score = max(self.score, self.peak_score)
 
-    def adjust_speed(self):
-        
+    def set_max_speed(self):
         # Ensure speed is a value between min_speed and max_speed based on the player's score
         speed = (1 - (self.score / settings.player["speed_reduction_rate"])) * settings.player["max_speed"]
         self.speed = max(speed, settings.player["min_speed"])

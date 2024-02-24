@@ -1,7 +1,7 @@
 player = dict(
     base_radius=5,
-    food_detection = 10,
-    player_detection = 10,
+    food_detection = 3,
+    player_detection = 3,
     min_speed = 0.6,
     max_speed = 3,
     speed_reduction_rate = 40,

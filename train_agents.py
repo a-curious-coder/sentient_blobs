@@ -109,7 +109,6 @@ def check_for_game_events(players):
         list -- A list of players
     """
     event_actions = {
-        pygame.QUIT: quit_game,
         pygame.MOUSEBUTTONDOWN: handle_mousebuttondown
     }
 
@@ -244,21 +243,21 @@ def draw_game(players_list, food_list, quadtree):
         nearest_player_obj = quadtree.query(selected_player.vision_boundary, "Player")
         selected_player.vision_boundary.draw(WIN)
 
-        for food_obj in nearest_food_obj:
-            pygame.draw.aaline(
-                surface=WIN,
-                color=(255, 255, 0, 100),
-                start_pos=(selected_player.position.x, selected_player.position.y),
-                end_pos=(food_obj.position.x, food_obj.position.y)
-            )
+        # for food_obj in nearest_food_obj:
+        #     pygame.draw.aaline(
+        #         surface=WIN,
+        #         color=(255, 255, 0, 100),
+        #         start_pos=(selected_player.position.x, selected_player.position.y),
+        #         end_pos=(food_obj.position.x, food_obj.position.y)
+        #     )
 
-        for player_obj in nearest_player_obj:
-            pygame.draw.aaline(
-                surface=WIN,
-                color=(255, 0, 0, 100),
-                start_pos=(selected_player.position.x, selected_player.position.y),
-                end_pos=(player_obj.position.x, player_obj.position.y)
-            )
+        # for player_obj in nearest_player_obj:
+        #     pygame.draw.aaline(
+        #         surface=WIN,
+        #         color=(255, 0, 0, 100),
+        #         start_pos=(selected_player.position.x, selected_player.position.y),
+        #         end_pos=(player_obj.position.x, player_obj.position.y)
+        #     )
 
         # Draw stats for the selected player
         drawer.draw_stats(selected_player, WIN, SCREEN_WIDTH)
@@ -359,7 +358,8 @@ def evaluate_genomes(genomes, config):
 
             # ! Get the output from the neural network
             output = models_list[player_index].activate(inputs)
-
+            
+            # Normalise the two values in output to be between 0 and 1
             player.process_player_movement(output, SCREEN_WIDTH, SCREEN_HEIGHT)
             
             if player.failed:
@@ -387,7 +387,6 @@ def main(config_file):
         config_file
     )
     
-    config.genome_config.initial_connection = "full_nodirect"
 
     # Create a population.Population object using the Config object created above
     neat_pop = population.Population(config)

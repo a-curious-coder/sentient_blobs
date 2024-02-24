@@ -29,7 +29,7 @@ def get_inputs(player, players_list, food_list):
 
     # Convert the collected data to a format the neural network will recognise
     inputs = tuple(
-        [player.score, player.radius, player.position.x, player.position.y]
+        [player.radius, player.position.x, player.position.y]
         + player_distances 
         + player_sizes
         + food_distances
