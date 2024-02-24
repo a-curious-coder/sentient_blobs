@@ -2,21 +2,18 @@
 import asyncio
 import os
 import pickle
-import time
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'sentient_blobs/src/modules')))
+import time
+
+import pygame
 from pygame.math import Vector2
 
-import neat
 import settings
-from components.food import Food
-from components.player import Player
-from drawer import draw_stats
-from game_event_handler import handle_keydown, handle_mousebuttondown, quit_game
-from getters import *
-from utilities.boundary_shape import Rectangle
-from utilities.collision_logic import check_collision, player_eaten_player
-from utilities.quadtree import QuadTree
+from src import *
+from src.neat import *
+from src.assets import Food, Player, Rectangle
+from src.quadtree import QuadTree
+from src.utilities import *
 
 pygame.init()
 
@@ -71,7 +68,7 @@ def load_player(winner_genome_path):
             # Add any additional error handling or instructions here
 
     # Create the winner net.
-    winner_net = neat.nn.FeedForwardNetwork.create(winner_genome, config)
+    winner_net = nn.create(winner_genome, config)
     return winner_net
 
 
@@ -266,7 +263,10 @@ async def main():
 
         # Load all pkl files with winner_ prefix
         winners = []
-        winner_path = os.getcwd() + "\src\winners"
+        winner_path = os.getcwd() + "\winners"
+        if not os.path.exists(winner_path):
+            print("No winner files found")
+            break
         # Get all the files in the current directory
         files = os.listdir(winner_path)
         winner_genome_path = None

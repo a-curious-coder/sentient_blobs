@@ -1,16 +1,14 @@
 
-import unittest
 import os
 import sys
+import unittest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '../sentient_blobs/src/modules')))
 from parameterized import parameterized
 from pygame.math import Vector2
 
-from components.food import Food
-from components.particle import Particle
-from components.player import Player
-from utilities.boundary_shape import Rectangle
-from utilities.quadtree import QuadTree
+from src.assets import *
+from src.quadtree import QuadTree
 
 
 class TestQuadTree(unittest.TestCase):
