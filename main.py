@@ -263,9 +263,9 @@ async def main():
 
         # Load all pkl files with winner_ prefix
         winners = []
-        winner_path = os.getcwd() + "\winners"
+        winner_path = os.getcwd() + "//winners"
         if not os.path.exists(winner_path):
-            print("No winner files found")
+            print("No winner files found in location {}".format(winner_path))
             break
         # Get all the files in the current directory
         files = os.listdir(winner_path)
@@ -276,8 +276,8 @@ async def main():
         for file in files:
             if file.startswith("winner_") and file.endswith(".pkl"):
                 winner_genome_path = file
-                print(winner_path + "\\" + winner_genome_path)
-                winners.append(load_player(winner_path + "\\" + winner_genome_path))
+                print(winner_path + "//" + winner_genome_path)
+                winners.append(load_player(winner_path + "//" + winner_genome_path))
 
         # ! Load the winner
         # Calculate game's end time from now

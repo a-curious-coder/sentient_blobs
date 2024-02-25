@@ -1,13 +1,16 @@
 FROM python:3.10
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
-COPY requirements.txt .
+COPY requirements.txt ./
 
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . . 
+COPY . .
 
 ENV DISPLAY=host.docker.internal:0.0
 
-CMD ["python", "main.py"]
+# Build cmd: docker build . -t image_name
+
+# Run cmd: docker run -it --rm --name my-running-app image_name
+CMD ["python", "./main.py"]

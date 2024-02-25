@@ -41,6 +41,10 @@ Since the game was made using the Pygame library, the only viable way I could fi
 
 Moreover, the neat-python library isn't really supported as it reads the 'neat' import within the main.py file. However, the workaround was downloading the neat-python source files and importing them ALL directly into main. Sorted. I believe this small workaround and discovery will unlock a lot of potential for pygame games to be deployed to the web with neat ai.
 
+## Tests
+
+To run a file containing unit tests for this project run "python -m unittest <test_file.py>"
+
 ## Citations
 [Neataptic](https://wagenaartje.github.io/neataptic/articles/agario/)
 [neat-python](https://neat-python.readthedocs.io/en/latest/)
