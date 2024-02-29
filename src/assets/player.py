@@ -9,8 +9,7 @@ from pygame.math import Vector2
 import settings as settings
 
 from ..utilities.ai import adjust_output_with_noise
-from ..utilities.general import (conflicting_moves, get_distance,
-                                 get_random_colour)
+from ..utilities.general import conflicting_moves, get_distance, get_random_colour
 from .boundary_shape import Rectangle
 from .particle import Particle
 
@@ -36,7 +35,6 @@ class Player(Particle):
         self.score = 0
         self.base_radius = settings.player["base_radius"]
         self.speed = settings.player["max_speed"]
-        self.last_eaten_time = time.time()
         self.players_eaten = 0
         self.food_eaten = 0
 
@@ -44,7 +42,7 @@ class Player(Particle):
         self.failed = False
         self.fail_reason = "" # Used to log the reason for failure
         self.selected = False # Used to highlight the player
-
+        self.angle_input = 0
         # ! Punishment counters
         # Log highest score
         self.peak_score = 0
@@ -58,7 +56,7 @@ class Player(Particle):
         self.highlighted = False
         self.highlightColor = None
         self.movement_angle = 0
-        
+        self.angle_in_degrees = 0
         # New
         self.vision_boundary = Rectangle(Vector2(position.x - (self.vision_distance // 2) - self.radius, 
                                                 position.y - (self.vision_distance // 2) - self.radius), 
@@ -96,55 +94,8 @@ class Player(Particle):
         if self.show_name:
             text = self.font.render(str(self.id), 1, (255, 255, 255))
             screen.blit(text, (self.position.x - text.get_width() / 2, self.position.y - text.get_height() / 2))
-
-    def move(self, keys, width, height):
-        self.distance_travelled += self.speed
-        self.adjust_speed()
-        if keys[pygame.K_LEFT]:
-            if self.position.x - self.speed <  0:
-                self.position.x = width - self.radius
-            else:
-                self.position.x -= self.speed
-
-        if keys[pygame.K_RIGHT]:
-            if self.position.x + self.speed > width - self.radius:
-                self.position.x = self.radius
-            else:
-                self.position.x += self.speed
-
-        if keys[pygame.K_UP]:
-            if self.position.y - self.speed <  0:
-                self.position.y = height - self.radius
-            else:
-                self.position.y -= self.speed
-
-        if keys[pygame.K_DOWN]:
-            if self.position.y + self.speed > height - self.radius:
-                self.position.y = self.radius
-            else:
-                self.position.y += self.speed
-
-    def move_randomly(self, screen):
-        """ Moves the player randomly at speed within the bounds of the screen """
-        keys = {
-            pygame.K_LEFT: random.choice([True, False]),
-            pygame.K_RIGHT: random.choice([True, False]),
-            pygame.K_UP: random.choice([True, False]),
-            pygame.K_DOWN: random.choice([True, False]),
-        }
-        self.move(keys, screen.get_width(), screen.get_height())
-
-    def collides_with(self, other: Particle) -> bool:
-        x1, y1, r1 = self.position.x, self.position.y, self.radius
-        x2, y2, r2 = other.position.x, other.position.y, other.radius
-         # Calculate the distance between the centers of the two circles using the distance formula.
-        distance = math.hypot(x1 - x2, y1 - y2)
-        threshold = r1 + r2
-        # If the distance is less than the sum of the two radii, the circles are colliding.
-        return distance <= threshold
         
-
-    def process_player_movement(self, output, width, height):
+    def move(self, output, width, height):
         # Ensure output has at least two elements
         if len(output) < 2:
             raise ValueError("Output must contain at least two elements for angle and speed.")
@@ -153,6 +104,7 @@ class Player(Particle):
         if self.speed <= 0:
             raise ValueError("Player speed must be a positive number.")
 
+        self.angle_input = output[0]
         # Convert the output between 0 and 1 to an angle in radians
         angle_in_radians = (output[0] + 1) * math.pi
 
@@ -182,49 +134,11 @@ class Player(Particle):
         self.position.x = new_x
         self.position.y = new_y
 
-
-    
-    # def process_player_movement(self, output, w, h):
-    #     keys = {
-    #         pygame.K_LEFT: False,
-    #         pygame.K_RIGHT: False,
-    #         pygame.K_UP: False,
-    #         pygame.K_DOWN: False,
-    #     }
-
-    #     key_mapping = {
-    #         0: {pygame.K_LEFT},
-    #         1: {pygame.K_RIGHT},
-    #         2: {pygame.K_UP},
-    #         3: {pygame.K_DOWN},
-    #     }
-    #     # Convert the output to probabilities of which choice it's making
-    #     probabilities = np.exp(output) / np.sum(np.exp(output))
-    #     probabilities = adjust_output_with_noise(probabilities)
-    #     # Choose the action with the highest probability
-    #     # NOTE: A single action could select multiple moves as some values represent pairs of simultaneous moves
-    #     max_probability = np.max(probabilities)
-    #     max_indices = np.where(probabilities == max_probability)[0]
-    #     actions = max_indices.tolist()
-    #     ai_chosen_moves = []
-    #     for action in actions:
-    #         # Map the action to corresponding key press(es)
-    #         ai_chosen_moves += key_mapping[action]
-
-    #     # Map the action to key press(es)
-    #     for key in keys:
-    #         keys[key] = key in ai_chosen_moves
-
-    #     # ! If any moves are True, check for conflicting moves
-    #     if any(keys):
-    #         self.last_move_time = time.time()
-    #         self.move(keys, w, h)
-    #         self.in_motion = True
-    #     else:
-    #         self.in_motion = False
-        
     def add_to_score(self, value):
         self.score += value if value >= 1 else 1
+        if value < 1:
+            self.score += 1
+        
         if self.score >= 60:
             self.radius = self.base_radius + 60 + (self.score - 60) * 0.5
         elif self.score >= 90:

@@ -10,8 +10,8 @@ from pygame.math import Vector2
 
 import settings
 from src import *
-from src.neat import *
 from src.assets import Food, Player, Rectangle
+from src.neat import *
 from src.quadtree import QuadTree
 from src.utilities import *
 
@@ -36,7 +36,7 @@ NUM_FOOD = settings.game["num_food"]
 FPS = settings.game["fps"]
 MAX_SCORE = settings.game["max_score"]  # The highest score achieved by a player
 FRAME_LIMIT = settings.game["frame_limit"]
-
+TIME_LIMIT = 10
 # Can only eat other players if this player is at least this much bigger
 EAT_PLAYER_THRESHOLD = settings.player["eat_player_threshold"]
 FOOD_DETECTION = settings.player["food_detection"]
@@ -255,7 +255,7 @@ async def main():
     """ Game loop """
     print(f"Screen resolution: {w}x{h}")
     global QUADTREE
-    global CURRENT_FRAME, SCREEN_WIDTH, SCREEN_HEIGHT, GAME_TIME, FRAME_LIMIT, SCORE_LIMIT, WIN  # use the global variable gen and SCREEN
+    global TIME_LIMIT, CURRENT_FRAME, SCREEN_WIDTH, SCREEN_HEIGHT, GAME_TIME, FRAME_LIMIT, SCORE_LIMIT, WIN  # use the global variable gen and SCREEN
     region = Rectangle(Vector2(0, 0), Vector2(SCREEN_WIDTH, SCREEN_HEIGHT))
     while True:
         print(f"{'Name':^10}{'Fitness':^10}{'Peak':^10}{'Score':^10}{'p_eaten':^10}{'f_eaten':^10}{'Distance':^10}{'Death Reason':<20}")
@@ -339,7 +339,6 @@ async def main():
                     if check_collision(f, player):
                         player.add_to_score(f.value)
                         player.food_eaten += 1
-                        player.last_eaten_time = time.time()
                         food_list.remove(f)
                         QUADTREE.remove(f)
 
@@ -354,7 +353,7 @@ async def main():
                 # ! Get the output from the neural network
                 output = models_list[player_index].activate(inputs)
 
-                player.process_player_movement(output, SCREEN_WIDTH, SCREEN_HEIGHT)
+                player.move(output, SCREEN_WIDTH, SCREEN_HEIGHT)
                 
                 if player.failed:
                     delete_player(player_index, players_list, models_list)

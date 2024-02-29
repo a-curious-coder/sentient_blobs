@@ -37,7 +37,6 @@ def player_eaten_player(player: Player, colliding_player: Player) -> bool:
         # If the player's score is 0, then check if the player's radius is equal to radius
         player.add_to_score(colliding_player.score * settings.player["score_consumption"])
         player.players_eaten += 1
-        player.last_eaten_time = time.time()
         
         # ! Set the colliding player values
         colliding_player.failed = True

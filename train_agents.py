@@ -9,6 +9,7 @@ from math import floor, sqrt
 
 import numpy as np
 import pygame
+
 # Import clock
 from pygame import time as pytime
 
@@ -24,8 +25,8 @@ PAUSED = False
 infoObject = pygame.display.Info()
 w = infoObject.current_w
 h = infoObject.current_h
-SCREEN_WIDTH = w // 2
-SCREEN_HEIGHT = h // 2
+SCREEN_WIDTH = (w // 3) * 2
+SCREEN_HEIGHT = (h // 3) * 2
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 GAME_PADDING = settings.game["padding"]
@@ -55,11 +56,6 @@ pygame.font.init()
 # Render the scores as text
 font = pygame.font.SysFont(None, 30)  # Adjust the size as needed
 
-def calculate_remaining_fitness(player_list: list, genomes_list):
-    for player_index, player in enumerate(player_list):
-        genomes_list[player_index].fitness = calculate_player_fitness(player)
-    print("Round complete")
-
 
 def paused():
     # Display a "Paused" message
@@ -78,26 +74,7 @@ def paused():
         clock.tick(15)
         
 def calculate_player_fitness(player: Player) -> int:
-    # Weights for each component
-    weights = {
-        "score": 1,
-        "players_eaten": 1, # NOTE: Could have some influence on fitness later on
-        "food_eaten": 1, # NOTE: Could have some influence on fitness later on
-    }
-
-    # Calculate the score for each component
-    score_component = player.score * weights["score"]
-
-    fitness_score = score_component
-
-    if player.failed:
-        fitness_score /= 4
-    punishment = math.ceil(player.conflicting_moves_counter * CONFLICTING_MOVES_PENALTY)
-    if punishment > 0:
-        fitness_score -= punishment
-
-    # Return the final fitness score
-    return int(fitness_score)
+    return int(player.score)
 
 
 def check_for_game_events(players):
@@ -125,46 +102,11 @@ def check_for_game_events(players):
                 global SHOWQUADTREE
                 SHOWQUADTREE = not SHOWQUADTREE
 
-def pause_game():
-    global PAUSED
-    PAUSED = not PAUSED
 
 def end_generation(genomes_list, players_list, models_list):
     for i, player in enumerate(players_list):
-        genomes_list[i].fitness = calculate_player_fitness(player)
-        player.fail_reason = player.fail_reason or "Round time done"
-        print(f"{player.name:^10}{genomes_list[i].fitness:^10}", end="")
-        fitness_components = get_fitness_components(player)
-        for key, value in fitness_components.items():
-            value = round(value, 2)
-            print(f"{value:^10}", end="")
-        print(f"{player.fail_reason:<20}")
-
-
-def remove_element_from_lists(index, *args):
-    if type(index) != int:
-        print("Invalid type of index arg")
-    for arg in args:
-        arg.pop(index)
-
-
-def delete_player(player_index, players_list, genomes_list, models_list):
-    player = players_list[player_index]
-
-    # ! Set the fitness score
-    genomes_list[player_index].fitness = calculate_player_fitness(player)
-
-    # ! Print out the stats of the player to console
-    fitness_components = get_fitness_components(player)
-    print(f"{player.name:^10}{genomes_list[player_index].fitness:^10}", end="")
-    for key, value in fitness_components.items():
-        value = round(value, 2)
-        print(f"{value:^10}", end="")
-    print(f"{player.fail_reason:<20}")
-
-    # ! Remove player, genome and model from the lists as we've modified the genome by reference (fucking hope I have)
-    remove_element_from_lists(player_index, players_list, models_list, genomes_list)
-
+        genomes_list[player.id].fitness = calculate_player_fitness(player)
+        # TODO: Add logging here for each player's fitness
 
 def max_score_reached(players_list):
     MAX_SCORE = max(player.score for player in players_list)
@@ -193,13 +135,14 @@ def draw_game(players_list, food_list, quadtree):
         food_list {list} -- A list of food items
     """
     # Background
-    WIN.fill((0, 50, 0))
     if SHOWQUADTREE:
         quadtree.draw(WIN)
     # Get highest score
     MAX_SCORE = max(player.score for player in players_list)
 
     for player in players_list:
+        if player.failed:
+            continue
         colour = (255, 0, 0)
         if MAX_SCORE > 0:
             colour = (
@@ -224,41 +167,20 @@ def draw_game(players_list, food_list, quadtree):
     timer_text = font.render(
         f"Time: {int(minutes)}:{int(seconds):02d}", True, (255, 255, 255)
     )
+    generation_text = font.render(f"Generation: {GENERATION}", True, (255, 255, 255))
+
     WIN.blit(timer_text, (10, 10))  # Position as needed
     WIN.blit(fps, (10, 40))  # Position as needed
-    # Draw the scores onto the screen
     WIN.blit(score_text, (10, 70))  # Position as needed
     WIN.blit(num_players_text, (10, 100))  # Position as needed
-
-    # Draw generation
-    generation_text = font.render(
-        f"Generation: {GENERATION}", True, (255, 255, 255)
-    )  # White text
     WIN.blit(generation_text, (10, 130))  # Position as needed
+
+
     # Find the selected player
     selected_player = next((player for player in players_list if player.selected), None)
 
     if selected_player:
-        nearest_food_obj = quadtree.query(selected_player.vision_boundary, object_type="Food")
-        nearest_player_obj = quadtree.query(selected_player.vision_boundary, "Player")
         selected_player.vision_boundary.draw(WIN)
-
-        # for food_obj in nearest_food_obj:
-        #     pygame.draw.aaline(
-        #         surface=WIN,
-        #         color=(255, 255, 0, 100),
-        #         start_pos=(selected_player.position.x, selected_player.position.y),
-        #         end_pos=(food_obj.position.x, food_obj.position.y)
-        #     )
-
-        # for player_obj in nearest_player_obj:
-        #     pygame.draw.aaline(
-        #         surface=WIN,
-        #         color=(255, 0, 0, 100),
-        #         start_pos=(selected_player.position.x, selected_player.position.y),
-        #         end_pos=(player_obj.position.x, player_obj.position.y)
-        #     )
-
         # Draw stats for the selected player
         drawer.draw_stats(selected_player, WIN, SCREEN_WIDTH)
 
@@ -306,9 +228,6 @@ def evaluate_genomes(genomes, config):
     # ! GAME LOOP
     while game_running:
         check_for_game_events(players_list)
-        if PAUSED:
-            continue
-        deleted = 0
         CURRENT_FRAME += 1
         GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
         CLOCK.tick(FPS)
@@ -322,31 +241,51 @@ def evaluate_genomes(genomes, config):
             continue
 
         quadtree = QuadTree(quadtree_area, 4)
-        for particle in players_list + food_list:
-            quadtree.insert(particle)
+        for player in players_list:
+            if player.failed:
+                continue
+            quadtree.insert(player)
 
+        for food in food_list:
+            quadtree.insert(food)
+
+        WIN.fill((0, 0, 0))
         # Check for collisions
         for player_index in reversed(range(len(players_list))):
+
             player = players_list[player_index]
             player.colliding = False
             if player.failed:
-                delete_player(player_index, players_list, genomes_list, models_list)
-                deleted += 1
+                quadtree.remove(player)
                 continue
             
             # ! Calculate the area around the player
             nearby_players = quadtree.query(player.vision_boundary)
-            player.vision_boundary.draw(WIN)
 
             process_player_collision(nearby_players, player)
 
             nearby_food = quadtree.query(player.vision_boundary, "Food")
+            # TODO: Add ability to draw line from player to closest three players
+                
+            # for player_obj in nearby_players:
+            #     pygame.draw.aaline(
+            #         surface=WIN,
+            #         color=(255, 0, 0, 100),
+            #         start_pos=(player.position.x, player.position.y),
+            #         end_pos=(player_obj.position.x, player_obj.position.y)
+            #     )
 
             for f in nearby_food:
+                # TODO: Add ability to draw line from player to closest three food
+                # pygame.draw.aaline(
+                #     surface=WIN,
+                #     color=(255, 255, 0, 100),
+                #     start_pos=(player.position.x, player.position.y),
+                #     end_pos=(f.position.x, f.position.y)
+                # )
                 if check_collision(f, player):
                     player.add_to_score(f.value)
                     player.food_eaten += 1
-                    player.last_eaten_time = time.time()
                     food_list.remove(f)
                     quadtree.remove(f)
 
@@ -360,11 +299,8 @@ def evaluate_genomes(genomes, config):
             output = models_list[player_index].activate(inputs)
             
             # Normalise the two values in output to be between 0 and 1
-            player.process_player_movement(output, SCREEN_WIDTH, SCREEN_HEIGHT)
+            player.move(output, SCREEN_WIDTH, SCREEN_HEIGHT)
             
-            if player.failed:
-                delete_player(player_index, players_list, genomes_list, models_list)
-                quadtree.remove(player)
         # ! Ensure there are always correct number of food items on the screen
         ensure_food(food_list, players_list)
         draw_game(players_list, food_list, quadtree)
@@ -403,7 +339,7 @@ def main(config_file):
     
     # Run the NEAT algorithm for  1000 generations
     for generation in range(MAX_GEN):
-        neat_pop.run(evaluate_genomes,   1)  # Run for  1 generation
+        neat_pop.run(evaluate_genomes, 1)  # Run for  1 generation
 
         # If the generation is a multiple of  10, save the winner
         if (generation +  1) %  10 ==  0:
@@ -414,20 +350,6 @@ def main(config_file):
             with open(filepath, "wb") as f:
                 pickle.dump(winner, f)
 
-    # Call the run method on the Population object, giving it your fitness function and (optionally) the maximum number of generations you want NEAT to run
-    # neat_pop.run(evaluate_genomes, MAX_GEN)
-    
-    # Get the most fit genome genome as our winner with the statistics.best_genome() function
-    # winner = stats.best_genome()
-    # Get todays date and time in dd_mm_yy HH:mm format to prepare for file name
-    # date_time = time.strftime("%y_%m_%d_%H_%M")
-    # # Save the winner genome to a file using the pickle module
-    # filename = f"winner_{date_time}.pkl"
-    # with open(filename, "wb") as f:
-    #     pickle.dump(winner, f)
-    #     f.close()
-    # Show the final statistics
-    # print(f'\nBest genome:\n{winner}')
 
 
 if __name__ == "__main__":
