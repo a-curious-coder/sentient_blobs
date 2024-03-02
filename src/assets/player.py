@@ -154,18 +154,20 @@ class Player(Particle):
             raise ValueError("Player speed must be a positive number.")
 
         # Convert the output between 0 and 1 to an angle in radians
-        angle = output[0] * 2 * np.pi
+        angle_in_radians = (output[0] + 1) * math.pi
+
         # Convert angle to value between 0 and 360
-        anglee = np.degrees(angle)
-        self.movement_angle = anglee
+        self.movement_angle = int(math.degrees(angle_in_radians) % 360)
+
         self.set_max_speed()
+
         # Convert the second of two outputs to a speed between 0 and 1
-        self.speed = max(settings.player["min_speed"], output[1] * self.speed)
-
+        # self.speed = max(settings.player["min_speed"], output[1] * self.speed)
+        self.speed = round(settings.player["min_speed"] + (output[1] + 1) * (settings.player["max_speed"] - settings.player["min_speed"]) / 2, 2)
         # Calculate the new position using anglee
-        new_x = self.position.x + self.speed * np.cos(angle)
-        new_y = self.position.y + self.speed * np.sin(angle)
-
+        new_x = self.position.x  + math.cos(angle_in_radians) * self.speed
+        new_y = self.position.y + math.sin(angle_in_radians) * self.speed
+        
         # Wrap around the boundaries of the map
         if new_x < 0:
             new_x = width
