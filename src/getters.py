@@ -16,10 +16,10 @@ PLAYER_DETECTION = settings.player["player_detection"]
 
 def get_inputs(player, players_list, food_list):
     # TODO: Refactor this for better readability
-    player_detections = list(calculate_and_sort_player_distances(player, players_list).values())
+    player_detections = list(get_nearest_particle_distances(player, players_list).values())
     player_distances = [p[0] for p in player_detections]
     player_bools = [p[1] for p in player_detections]
-    food_distances = [p[0] for p in list(calculate_and_sort_player_distances(player, food_list).values())]
+    food_distances = [p[0] for p in list(get_nearest_particle_distances(player, food_list).values())]
 
     # Convert the collected data to a format the neural network will recognise
     inputs = tuple(
@@ -34,7 +34,7 @@ def get_inputs(player, players_list, food_list):
 
 # Create a function that measures the distance between the_player and each player in the list from the edge of the_player's circle to the edge of the other player's circle
 # This function will be used to determine the nearest players to the_player
-def calculate_and_sort_player_distances(the_player, players):
+def get_nearest_particle_distances(the_player, players):
     distances = {}
     for other_player in players:
         if other_player != the_player:
