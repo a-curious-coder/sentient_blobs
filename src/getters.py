@@ -15,13 +15,17 @@ FOOD_DETECTION = settings.player["food_detection"]
 PLAYER_DETECTION = settings.player["player_detection"]
 
 def get_inputs(player, players_list, food_list):
-    player_distances = list(calculate_and_sort_player_distances2(player, players_list).values())
-    food_distances = list(calculate_and_sort_player_distances2(player, food_list).values())
+    # TODO: Refactor this for better readability
+    player_detections = list(calculate_and_sort_player_distances(player, players_list).values())
+    player_distances = [p[0] for p in player_detections]
+    player_bools = [p[1] for p in player_detections]
+    food_distances = [p[0] for p in list(calculate_and_sort_player_distances(player, food_list).values())]
 
     # Convert the collected data to a format the neural network will recognise
     inputs = tuple(
         [player.position.x, player.position.y]
-        + player_distances 
+        + player_distances
+        + player_bools
         + food_distances
     )
 
@@ -30,7 +34,7 @@ def get_inputs(player, players_list, food_list):
 
 # Create a function that measures the distance between the_player and each player in the list from the edge of the_player's circle to the edge of the other player's circle
 # This function will be used to determine the nearest players to the_player
-def calculate_and_sort_player_distances2(the_player, players):
+def calculate_and_sort_player_distances(the_player, players):
     distances = {}
     for other_player in players:
         if other_player != the_player:
@@ -44,69 +48,18 @@ def calculate_and_sort_player_distances2(the_player, players):
             # Ensure the distance is always positive
             distance_from_edge = max(distance_from_edge,  0)
             
-            distances[other_player.name] = distance_from_edge
+            distances[other_player.name] = (distance_from_edge, the_player.radius > other_player.radius)
 
     # Sort the dictionary by values (distances)
-    sorted_distances = dict(sorted(distances.items(), key=lambda item: item[1]))
-
+    sorted_distances = dict(sorted(distances.items(), key=lambda item: item[1][0]))
+    
     # If there aren't  PLAYER_DETECTION players, fill the remaining slots with  9999
     while len(sorted_distances) <  PLAYER_DETECTION:
         placeholder_name = f"PlaceholderPlayer{len(sorted_distances) +   1}"
-        sorted_distances[placeholder_name] =  9999
+        sorted_distances[placeholder_name] =  (9999, 0)
 
     # Get the nearest  PLAYER_DETECTION players
     return dict(sorted(sorted_distances.items(), key=lambda item: item[1])[:PLAYER_DETECTION])
-
-
-def calculate_and_sort_player_distances(player, players):
-    distances = {}
-    count = 0
-    for other_player in players:
-        if other_player != player:
-            dx = other_player.position.x - player.position.x
-            dy = other_player.position.y - player.position.y
-            distance = math.sqrt(dx * dx + dy * dy)
-            
-            # Ensure the distance is always positive
-            distance = max(distance - 2 * min(player.radius, other_player.radius), 0)
-            
-            distances[other_player.name] = distance
-        count += 1
-
-    # Sort the dictionary by values (distances)
-    sorted_distances = dict(sorted(distances.items(), key=lambda item: item[1]))
-
-    # If there aren't 10 players, fill the remaining slots with 9999
-    while len(sorted_distances) < 10:
-        placeholder_name = f"PlaceholderPlayer{len(sorted_distances) +  1}"
-        sorted_distances[placeholder_name] = 9999
-        count += 1
-
-    # Get the nearest 10 players
-    return dict(sorted(sorted_distances.items(), key=lambda item: item[1])[:10])
-
-
-def get_nearest_players_sizes(player, players):
-    # Assuming calculate_and_sort_player_distances function is available
-    nearest_players = calculate_and_sort_player_distances(player, players)
-
-    # Create a dictionary to store the sizes of the nearest players
-    sizes = {}
-
-    count = 0
-    # Iterate through the nearest players
-    for other_player in players:
-        # Check if the other player is in the list of nearest players
-        if other_player.name in nearest_players:
-            # Add the player's size (radius) to the dictionary
-            sizes[other_player.name] = other_player.radius
-        count += 1
-
-    while len(sizes) < 10:
-        sizes[f"FillerValue_{len(sizes)+1}"] = 0
-        count += 1
-    # Return the dictionary
-    return sizes
 
 
 def get_neat_components(genomes, config, w, h) -> dict:
