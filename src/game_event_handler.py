@@ -4,16 +4,41 @@ import os
 
 import pygame
 
+PAUSED = False
+
+def check_for_game_events(players):
+    """Check for game events such as quitting or clicking on a player
+    Arguments:
+        players {list} -- A list of players
+
+    Returns:
+        list -- A list of players
+    """
+    global PAUSED
+    event_actions = {
+        pygame.MOUSEBUTTONDOWN: handle_mousebuttondown
+    }
+
+    for event in pygame.event.get():
+        event_type = event.type
+        if event_type in event_actions:
+            event_actions[event_type](event, players)
+        if event_type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                PAUSED = not PAUSED
+                pause(players)
+            if event.key == pygame.K_ESCAPE:
+                quit_game()
+
+def pause(players):
+    # TODO: Work on pause functionality
+    while PAUSED:
+        check_for_game_events(players)
+        continue
 
 def quit_game():
     pygame.quit()
     quit()
-
-
-def handle_keydown(event, players):
-    if event.key == pygame.K_ESCAPE:
-        pygame.quit()
-        quit()
 
 
 def handle_mousebuttondown(event, players):
@@ -37,12 +62,3 @@ def deselect_other_players(clicked_player, players):
     for player in players:
         if player != clicked_player:
             player.selected = False
-
-def handle_new_ai(event, players):
-    if event.key == pygame.K_n:
-        for player in players:
-            player.ai = False
-            player.failed = True
-            player.fail_reason = "New AI"
-        return True
-    return False

@@ -24,6 +24,7 @@ class Rectangle(BoundaryShape):
         self.size = size
         self.x, self.y = position
         self.w, self.h = size
+        self.center = (self.x + (self.w // 2), self.y + (self.h // 2))
 
     def contains(self, particle: Particle) -> bool:
         """
@@ -71,6 +72,11 @@ class Rectangle(BoundaryShape):
             screen (pygame.Surface): The surface to draw on.
         """
         pygame.draw.rect(screen, colour, [self.x, self.y, self.w, self.h], self.line_thickness)
+        x = self.center[0]
+        y = self.center[1]
+        size = 10
+        pygame.draw.line(screen, (255,0,0), (x - size, y), (x + size, y), 1) # Horizontal line
+        pygame.draw.line(screen, (255,0,0), (x, y - size), (x, y + size), 1) # Vertical line
     
     def __str__(self):
         return f"Rectangle: {self.position}, {self.size}"

@@ -46,12 +46,7 @@ class Player(Particle):
         # ! Punishment counters
         # Log highest score
         self.peak_score = 0
-        self.conflicting_moves = False
-        self.conflicting_moves_counter = 0
-        self.last_move_time = time.time()
-        self.in_motion = False
         self.colliding = False
-        self.visited = 0
         self.show_name = False
         self.highlighted = False
         self.highlightColor = None
@@ -62,6 +57,7 @@ class Player(Particle):
                                                 position.y - (self.vision_distance // 2) - self.radius), 
                                         Vector2(self.vision_distance, 
                                                 self.vision_distance))
+        self.nn_outputs = None
 
     def draw(self, screen):
         _radius = self.radius
@@ -87,6 +83,7 @@ class Player(Particle):
             pygame.draw.circle(surface, (ir, ig, ib, 255), (int(_radius), int(_radius)), _radius, 2)
 
         # self.vision_boundary.draw(screen)
+
         screen.blit(surface, (int(self.position.x) - _radius, int(self.position.y) - _radius))
         # pygame.draw.circle(screen, self.color, self.position, self.radius)
         self.highlighted = False
@@ -101,9 +98,10 @@ class Player(Particle):
             raise ValueError("Output must contain at least two elements for angle and speed.")
 
         # Ensure self.speed is a positive number
-        if self.speed <= 0:
+        if self.speed < 0:
             raise ValueError("Player speed must be a positive number.")
-
+        min_speed = 0
+        self.nn_outputs = output
         self.angle_input = output[0]
         # Convert the output between 0 and 1 to an angle in radians
         angle_in_radians = (output[0] + 1) * math.pi
@@ -115,7 +113,7 @@ class Player(Particle):
 
         # Convert the second of two outputs to a speed between 0 and 1
         # self.speed = max(settings.player["min_speed"], output[1] * self.speed)
-        self.speed = round(settings.player["min_speed"] + (output[1] + 1) * (settings.player["max_speed"] - settings.player["min_speed"]) / 2, 2)
+        self.speed = round(min_speed + (output[1] + 1) * (settings.player["max_speed"] - min_speed) / 2, 2)
         # Calculate the new position using anglee
         new_x = self.position.x  + math.cos(angle_in_radians) * self.speed
         new_y = self.position.y + math.sin(angle_in_radians) * self.speed
@@ -133,8 +131,37 @@ class Player(Particle):
 
         self.position.x = new_x
         self.position.y = new_y
+    
+    def move_toward_food(self, food, width, height):
+        # Calculate the difference in x and y coordinates
+        dx = food.position.x - self.position.x
+        dy = food.position.y - self.position.y
+        
 
-    def add_to_score(self, value):
+        # Calculate the angle in radians and convert to degrees
+        angle_in_radians = math.atan2(dy, dx)
+        angle_degrees = math.degrees(angle_in_radians)
+
+        # Calculate the new position using anglee
+        new_x = self.position.x  + math.cos(angle_in_radians) * self.speed
+        new_y = self.position.y + math.sin(angle_in_radians) * self.speed
+        self.speed = round(2 * (settings.player["max_speed"]) / 2, 2)
+
+        # Wrap around the boundaries of the map
+        if new_x < 0:
+            new_x = width
+        elif new_x > width:
+            new_x = 0
+
+        if new_y < 0:
+            new_y = height
+        elif new_y > height:
+            new_y = 0
+
+        self.position.x = new_x
+        self.position.y = new_y
+
+    def add_score(self, value):
         self.score += value if value >= 1 else 1
         if value < 1:
             self.score += 1
@@ -147,17 +174,25 @@ class Player(Particle):
             self.radius = self.base_radius + (self.score)
         self.peak_score = max(self.score, self.peak_score)
 
-    def set_max_speed(self):
-        # Ensure speed is a value between min_speed and max_speed based on the player's score
-        speed = (1 - (self.score / settings.player["speed_reduction_rate"])) * settings.player["max_speed"]
-        self.speed = max(speed, settings.player["min_speed"])
-
     def highlight(self, colour=(255, 255, 0)):
         self.highlighted = True
         self.highlightColor = colour
 
     def punish(self):
         self.score -= (self.score * settings.player['score_reduction']) if self.score > 1 else 0
+
+    def set_max_speed(self):
+        # Ensure speed is a value between min_speed and max_speed based on the player's score
+        speed = (1 - (self.score / settings.player["speed_reduction_rate"])) * settings.player["max_speed"]
+        self.speed = max(speed, settings.player["min_speed"])
+
+    def set_colour(self, max_score = 1):
+        max_score = 1 if max_score <= 0 else max_score
+        self.colour = (
+                    255 - int(self.score / max_score * 255),
+                    int(self.score / max_score * 255),
+                    0,
+                )
 
     def __eq__(self, other):
         return self.name == other.name

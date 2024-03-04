@@ -17,7 +17,7 @@ food = dict(
 game = dict(
     padding = 50,
     fps = 90,
-    num_food = 150,
+    num_food = 250,
     max_score = 1000,
     frame_limit = 600
 )
