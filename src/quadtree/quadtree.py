@@ -122,7 +122,7 @@ class QuadTree:
     # Create function that takes boundary and list of particles and returns a list of particles ordered by distance from the center of the boundary
     def query_ordered(self, boundary: BoundaryShape, particles: list):
         """Return a list of particles ordered by distance from the center of the boundary"""
-        return sorted(particles, key=lambda particle: particle.position.distance_to(boundary.position))
+        return sorted(particles, key=lambda particle: particle.position.distance_to(boundary.center))
 
     def draw(self, screen):
         """ Draws the quadtree """

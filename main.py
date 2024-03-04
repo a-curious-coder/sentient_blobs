@@ -5,7 +5,7 @@ import pickle
 
 import pygame
 from pygame.math import Vector2
-
+# from visualize import *
 import settings
 from src import *
 from src.assets import Player, Rectangle
@@ -25,14 +25,14 @@ SCREEN_WIDTH = 1024  # Increase the width to make the image sharper
 SCREEN_HEIGHT = 1024  # Increase the height to make the image sharper
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 # WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.NOFRAME)
-SCORE_LIMIT = 200  # the maximum score of the game before we break the loop
+SCORE_LIMIT = settings.game["max_score"]  # the maximum score of the game before we break the loop
 
 
 # Game settings
 GAME_PADDING = settings.game["padding"]
 NUM_FOOD = settings.game["num_food"]
-FPS = settings.game["fps"]
-MAX_SCORE = settings.game["max_score"]  # The highest score achieved by a player
+FPS_LIMIT = settings.game["fps"]
+HIGH_SCORE = 0
 FRAME_LIMIT = settings.game["frame_limit"]
 
 # Can only eat other players if this player is at least this much bigger
@@ -60,6 +60,8 @@ def load_player(winner_genome_path):
         try:
             with open(winner_genome_path, 'rb') as f:
                 winner_genome = pickle.load(f)
+            draw_net(config, winner_genome, True, "")
+            
         except Exception as e:
             print(e)
             print("Error: Unable to load winner.pkl file. Please ensure the file is valid.")
@@ -117,7 +119,6 @@ def check_for_game_events(players, models):
     """
     event_actions = {
         pygame.QUIT: quit_game,
-        pygame.KEYDOWN: handle_keydown,
         pygame.MOUSEBUTTONDOWN: handle_mousebuttondown,
     }
 
@@ -135,6 +136,7 @@ def check_for_game_events(players, models):
                 new_player_path = filepath
                 with open(new_player_path, 'rb') as f:
                     new_genome = pickle.load(f)
+                draw_net(config, new_genome, True)
                 config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                                 neat.DefaultSpeciesSet, neat.DefaultStagnation,
                                 "config-feedforward.txt")
@@ -240,7 +242,7 @@ async def draw_game(players_list, food_list):
             )
 
         # Draw stats for the selected player
-        draw_stats(selected_player, WIN, SCREEN_WIDTH)
+        draw_player_stats(selected_player, WIN, SCREEN_WIDTH)
     # Draw box for dropping AI pkl files
     pygame.draw.rect(WIN, (255, 255, 255), (10, SCREEN_HEIGHT - 60, 200, 50))
     drop_text = font.render("Drop AI pkl file here", True, (0, 0, 0))
@@ -261,12 +263,15 @@ async def main():
 
         # Load all pkl files with winner_ prefix
         winners = []
-        winner_path = os.getcwd() + "\winners"
+        winner_path = os.getcwd() + "/winners"
+        print(winner_path)
         if not os.path.exists(winner_path):
             print("No winner files found")
             break
         # Get all the files in the current directory
         files = os.listdir(winner_path)
+        print(*files, sep="\n")
+
         winner_genome_path = None
         if len(files) == 0:
             print("No winner files found")
@@ -274,8 +279,8 @@ async def main():
         for file in files:
             if file.startswith("winner_") and file.endswith(".pkl"):
                 winner_genome_path = file
-                print(winner_path + "\\" + winner_genome_path)
-                winners.append(load_player(winner_path + "\\" + winner_genome_path))
+                print(winner_path + "/" + winner_genome_path)
+                winners.append(load_player(winner_path + "/" + winner_genome_path))
 
         # ! Load the winner
         # Calculate game's end time from now
@@ -294,48 +299,57 @@ async def main():
 
         game_running = True
         CURRENT_FRAME = 0
+        drawer = Drawer(WIN)
 
         # ! GAME LOOP
         while game_running:
             CURRENT_FRAME += 1
-            QUADTREE = QuadTree(region, 4)
+            GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
+            players_list = check_for_game_events(players_list, models_list)
+            clock.tick(FPS_LIMIT)
             # ! Check if the game is finished
             if game_finished(players_list):
-                players_list.pop()
-                models_list.pop()
                 game_running = False
                 continue
 
-            players_list = check_for_game_events(players_list, models_list)
+            info_packet = WindowInformationPacket(
+                SCREEN_WIDTH,
+                SCREEN_HEIGHT,
+                0,
+                round(clock.get_fps()),
+                GAME_TIME,
+                HIGH_SCORE
+            )
 
-            # ! Reset the quadtree
+            QUADTREE = QuadTree(region, 4)
+
             for player in players_list:
+                if player.failed:
+                    continue
                 QUADTREE.insert(player)
-            
+
             for food in food_list:
                 QUADTREE.insert(food)
-
-            GAME_TIME = round((pygame.time.get_ticks() - start_time) / 1000, 2)  # record the game time for this generation
-
-            clock.tick(FPS)
-
+                
+            selected_player_nearby_players = None
+            selected_player_nearby_food = None
             # Update player positions and check for collisions
             for player_index in reversed(range(len(players_list))):
                 
                 player = players_list[player_index]
 
                 if player.failed:
-                    delete_player(player_index, players_list, models_list)
+                    QUADTREE.remove(player)
                     continue
 
                 nearby_players = QUADTREE.query(player.vision_boundary)
-                player.vision_boundary.draw(WIN)
+                
                 process_player_collision(nearby_players, player)
 
                 nearby_food = QUADTREE.query(player.vision_boundary, "Food")
                 for f in nearby_food:
                     if check_collision(f, player):
-                        player.add_to_score(f.value)
+                        player.add_score(f.value)
                         player.food_eaten += 1
                         food_list.remove(f)
                         QUADTREE.remove(f)
@@ -352,16 +366,17 @@ async def main():
                 output = models_list[player_index].activate(inputs)
 
                 player.move(output, SCREEN_WIDTH, SCREEN_HEIGHT)
-                
-                if player.failed:
-                    delete_player(player_index, players_list, models_list)
+
+                if player.selected:
+                    selected_player_nearby_players = nearby_players[:3]
+                    selected_player_nearby_food = nearby_food[:3]
                 
                 player.peak_score = max(player.score, player.peak_score)
 
             # ! Ensure there are always correct number of food items on the screen
             ensure_food(food_list, players_list)
-            
-            await draw_game(players_list, food_list)
+            QUADTREE = None
+            drawer.draw_game(info_packet, players_list, food_list, QUADTREE, selected_player_nearby_players, selected_player_nearby_food)
             await asyncio.sleep(0)
 
 

@@ -21,7 +21,7 @@ To preview the trained agents playing sentient_blobs: `python main.py`
 
 ## How do the player agents learn to play?
 Using the rules of NEAT (Neuro-Evolution of Augmenting Topologies), each player's neural network is initialised with random weight values. In the context of NEAT, the term 'neural network' and 'genome' are synonymous.
-![Player Neural Network](player_architecture.png)
+![Player Neural Network](media/player_architecture.png)
 Each player's genome has 8 input nodes, a single hidden layer with a random number of hidden nodes and 2 output nodes. Throughout the training process, the NEAT algorithm will change the weight values of the connection genes within the network in an attempt to better achieve the goal of getting the highest score.
 
 ### Player Genome Configuration
@@ -74,7 +74,7 @@ Gibbosauras; Aka, marc
 - Train on larger population
 - Input the nearest player sizes
 
-![Player Design](player_design.png)
+![Player Design](media/player_design.png)
 The current approach gives the player the distance between itself and the nearest three players... with no indication on how large those other players are. So how would the players know when they are able to eat each other. 
 
 I don't know whether I should calculate the euclidean distance between this player's center and the other player's center (this needs to be calculated)... Or! Providing the player with a boolean value determined by whether if this player's radius is larger than the other player's radius (which isn't a big calculation at all as we're just checking if one value is larger than the other.)

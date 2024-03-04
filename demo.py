@@ -96,7 +96,8 @@ def get_players(n = 10):
 
             if valid_position:
                 new_player = Player(Vector2(x, y), number)
-                new_player.set_colour((128, 128, 128))
+                max_score = max(player.score for player in players_list) if len(players_list) > 0 else 1
+                new_player.set_colour(max_score)
                 players_list.append(new_player)
                 occupied_positions.add((x, y))
                 break
@@ -166,9 +167,6 @@ def main():
         for player in players:
             if player == players[0]:
                 continue
-            # Move the player randomly
-            if moveParticles:
-                player.move_randomly(screen)
             quadtree.insert(player)
 
         for food in foods:
@@ -184,6 +182,10 @@ def main():
                 nearby_players = quadtree.query(player.vision_boundary)
                 nearby_food = quadtree.query(player.vision_boundary, object_type="Food")
             
+            # Move the player randomly
+            if moveParticles:
+                player.move_toward_food(nearby_food[0], screen_width, screen_height)
+
             # ! Draw lines to nearby objects that are being checked for collisions with the player
             if show_check_lines:
                 for p in nearby_players:
@@ -201,6 +203,10 @@ def main():
             for o in colliding_objects2:
                 player.highlight()
                 o.highlight(colour=(255,0,0))
+                if "Food" in o.name:
+                    quadtree.remove(o)
+                    nearby_food.remove(o)
+                    foods.remove(o)
                 
             player.draw(screen)
         

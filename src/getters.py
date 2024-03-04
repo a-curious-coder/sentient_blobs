@@ -78,7 +78,7 @@ def get_neat_components(genomes, config, w, h) -> dict:
     genomes_list = []
     models_list = []
     #  Set seed for reproducibility
-    random.seed(42)
+    # random.seed(42)
     counter = 0
     for _, genome in genomes:  # Replace 10 with the desired number of players
         random_x = random.randint(GAME_BORDER, w - GAME_BORDER)
