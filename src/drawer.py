@@ -1,5 +1,6 @@
 import pygame
 
+
 class Drawer:
 
     def __init__(self, WIN):
@@ -80,7 +81,7 @@ class Drawer:
         players_eaten_text = self.font.render(f"Players Eaten: {selected_player.players_eaten}", True, (255, 255, 255))
         food_eaten_text = self.font.render(f"Food Consumed: {selected_player.food_eaten}", True, (255, 255, 255))
         location_text = self.font.render(f"Location: ({selected_player.position.x:.0f}, {selected_player.position.y:.0f})", True, (255, 255, 255))
-        nn_outputs_text = self.font.render(f"[0]: {round(selected_player.nn_outputs[0], 2)} [1]: {round(selected_player.nn_outputs[1], 2)}", True, (255, 255, 255))
+        nn_outputs_text = self.font.render(f"Output: {round(selected_player.nn_outputs[0], 2)}", True, (255, 255, 255))
         radius_text = self.font.render(f"Radius: {selected_player.radius}", True, (255, 255, 255))  # Add radius text
         speed_text = self.font.render(f"Speed: {selected_player.speed:.2f}", True, (255, 255, 255))  # Add speed text
         angle_text = self.font.render(f"Angle: {selected_player.movement_angle:.0f}°", True, (255, 255, 255))  # Add speed text

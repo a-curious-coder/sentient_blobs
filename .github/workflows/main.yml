@@ -1,0 +1,30 @@
+name: Build Sentient Blobs
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-pygbag:
+    name:  Sentient Blobs
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Checkout
+      run: |
+            echo "[INFO] Attempting to install requirements"
+            python -m pip install -r requirements.txt
+            echo "[INFO] Installed requirements"
+            python -m pip install pygbag
+            echo "[INFO] Installed Pygbag for Python -> WebAssembly conversion"
+            echo "[INFO] Attempting to build the game"
+            python build_sentient_blobs.py
+            echo "[INFO] Successfully built the game and compiled to WebAssembly"
+
+    - name : "Upload to GitHub pages branch gh-pages"
+      uses: JamesIves/github-pages-deploy-action@4.1.7
+      with:
+        branch: gh-pages
+        folder: build/web

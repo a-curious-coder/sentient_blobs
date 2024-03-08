@@ -5,6 +5,7 @@ import pickle
 
 import pygame
 from pygame.math import Vector2
+
 # from visualize import *
 import settings
 from src import *
@@ -20,9 +21,9 @@ infoObject = pygame.display.Info()
 pygame.display.set_caption("Sentient Blobs")
 w = infoObject.current_w
 h = infoObject.current_h
+SCREEN_WIDTH = min(w, 1920)  # Ensure the width is no larger than the screen size
+SCREEN_HEIGHT = min(h, 1080)  # Ensure the height is no larger than the screen size
 QUADTREE = None
-SCREEN_WIDTH = 1024  # Increase the width to make the image sharper
-SCREEN_HEIGHT = 1024  # Increase the height to make the image sharper
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 # WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.NOFRAME)
 SCORE_LIMIT = settings.game["max_score"]  # the maximum score of the game before we break the loop
@@ -354,10 +355,8 @@ async def main():
                         food_list.remove(f)
                         QUADTREE.remove(f)
 
-                # ! Player punishments
-                starve_value = int(player.score * SCORE_REDUCTION)
-                
-                player.score -= starve_value
+                # ! Player punishments                
+                player.punish()
 
                 # ! Gather inputs for player's genome
                 inputs = get_inputs(player, nearby_players, nearby_food)

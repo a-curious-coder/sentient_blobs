@@ -96,21 +96,22 @@ class Player(Particle):
             screen.blit(text, (self.position.x - text.get_width() / 2, self.position.y - text.get_height() / 2))
         
     def move(self, output, width, height):
-        # Ensure output has at least two elements
-        if len(output) < 2:
-            raise ValueError("Output must contain at least two elements for angle and speed.")
+        # Ensure output has at least one elements
+        if len(output) != 1:
+            raise ValueError("Output must contain at least one elements for angle and speed.")
 
         # Ensure self.speed is a positive number
         if self.speed < 0:
             raise ValueError("Player speed must be a positive number.")
+
         min_speed = 0
         self.nn_outputs = output
         if self.angle_input != self.nn_outputs[0]:
             self.movement_changes += 1
-        else:
-            self.no_change_count += 1
-        if self.no_change_count > 150:
-            self.punish_score *= 0.9
+        # else:
+            # self.no_change_count += 1
+        # if self.no_change_count > 150:
+        #     self.punish_score *= 0.9
         self.angle_input = output[0]
         # Convert the output between 0 and 1 to an angle in radians
         angle_in_radians = (output[0] + 1) * math.pi
@@ -121,8 +122,9 @@ class Player(Particle):
         self.set_max_speed()
 
         # Convert the second of two outputs to a speed between 0 and 1
-        # self.speed = max(settings.player["min_speed"], output[1] * self.speed)
-        self.speed = round(min_speed + (output[1] + 1) * (settings.player["max_speed"] - min_speed) / 2, 2)
+        # self.speed = max(settings.player["min_speed"], output[1] * self.speed) # SIGMOID
+        # self.speed = round(min_speed + (output[1] + 1) * (settings.player["max_speed"] - min_speed) / 2, 2) # TANH / CLAMPED ACTIVATION FUNCTIONS
+
         # Calculate the new position using anglee
         new_x = self.position.x  + math.cos(angle_in_radians) * self.speed
         new_y = self.position.y + math.sin(angle_in_radians) * self.speed
@@ -171,16 +173,14 @@ class Player(Particle):
         self.position.y = new_y
 
     def add_score(self, value):
-        self.score += value if value >= 1 else 1
-        if value < 1:
-            self.score += 1
+        self.score += math.ceil(value)
         
         if self.score >= 60:
-            self.radius = self.base_radius + 60 + (self.score - 60) * 0.5
+            self.radius = self.base_radius + self.score + math.ceil(value * 0.5)
         elif self.score >= 90:
-            self.radius = self.base_radius + 90 + (self.score - 90) * 0.25
+            self.radius = self.base_radius + self.score + math.ceil(value * 0.25)
         else:
-            self.radius = self.base_radius + (self.score)
+            self.radius = self.base_radius + self.score
         self.peak_score = max(self.score, self.peak_score)
 
     def highlight(self, colour=(255, 255, 0)):
@@ -188,7 +188,7 @@ class Player(Particle):
         self.highlightColor = colour
 
     def punish(self):
-        self.score -= (self.score * settings.player['score_reduction']) if self.score > 1 else 0
+        self.score = self.score * settings.player['score_reduction'] if self.score >= 0.1 else 0
 
     def set_max_speed(self):
         # Ensure speed is a value between min_speed and max_speed based on the player's score

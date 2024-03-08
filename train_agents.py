@@ -3,20 +3,21 @@ import pickle
 import time
 
 import pygame
-from visualize import *
+
 import settings
 from src import *
 from src.assets import Player, Rectangle
 from src.neat import *
 from src.quadtree import QuadTree
-from src.utilities import check_collision, player_eaten_player, WindowInformationPacket
+from src.utilities import WindowInformationPacket, check_collision, player_eaten_player
+from visualize import *
 
 pygame.init()
 
 infoObject = pygame.display.Info()
 
-SCREEN_WIDTH = infoObject.current_w // 2
-SCREEN_HEIGHT = infoObject.current_h // 2
+SCREEN_WIDTH = infoObject.current_w 
+SCREEN_HEIGHT = infoObject.current_h 
 
 WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
@@ -47,8 +48,8 @@ font = pygame.font.SysFont(None, 30)  # Adjust the size as needed
 
 def calculate_player_fitness(player: Player) -> int:
     # TODO: Count number of changes in direction player makes 
-    player.score *= player.punish_score
-    return int(player.score) * int(player.movement_changes)
+    # player.score *= player.punish_score
+    return (int(player.score) * int(player.movement_changes)) * int(player.players_eaten)
 
 
 def end_generation(genomes_list, players_list, models_list):
@@ -62,7 +63,7 @@ def game_finished(players_list) -> bool:
     MAX_SCORE = max(player.score for player in players_list)
     max_score_reached = MAX_SCORE >= SCORE_LIMIT
 
-    round_time_reached = CURRENT_FRAME >= 600
+    round_time_reached = CURRENT_FRAME >= settings.game["frame_limit"]
     no_players_left = len(players_list) == 0
 
     finished =  round_time_reached or \
@@ -96,7 +97,7 @@ def evaluate_genomes(genomes, config):
     SHOWQUADTREE = False
     GENERATION += 1
     CURRENT_FRAME = 0
-
+    WIN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     # Calculate game's end time from now
     CLOCK = pygame.time.Clock()  # Create a clock object
     start_time = pygame.time.get_ticks()
@@ -230,17 +231,15 @@ def main(config_file):
     
     # Run the NEAT algorithm for  1000 generations
     for generation in range(MAX_GEN):
-        neat_pop.run(evaluate_genomes, 10)  # Run for  1 generation
+        neat_pop.run(evaluate_genomes, 1)  # Run for  1 generation
 
         # If the generation is a multiple of  10, save the winner
         if (generation +  1) %  1 ==  0:
             date_time = time.strftime("%y_%m_%d_%H_%M")
-            filename = "avg_fitness.svg"
-            if (generation +  1) %  10 == 0:
-                filename = f"gen_{generation+1}.svg"
+            filename = "media\\avg_fitness.svg"
             plot_stats(stats, ylog=False, view=False, filename=filename)
             winner = stats.best_genome()
-            filename = f"winner_gen_{generation+1}_{date_time}.pkl"
+            filename = f"winners\winner_gen_{generation+1}_{date_time}.pkl"
             filepath = os.path.join(winners_folder, filename)
             with open(filepath, "wb") as f:
                 pickle.dump(winner, f)

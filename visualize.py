@@ -28,7 +28,8 @@ def plot_stats(statistics, ylog=False, view=False, filename='avg_fitness.svg'):
     plt.legend(loc="best")
     if ylog:
         plt.gca().set_yscale('symlog')
-
+    # Set plt to 1920x1080
+    plt.gcf().set_size_inches(19.20, 10.80)
     plt.savefig(filename)
     if view:
         plt.show()
